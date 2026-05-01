@@ -1697,8 +1697,7 @@ ADMIN_HTML = '''
 '''
 
 # Save HTML files to templates/ directory
-with open(TEMPLATES_DIR / "index.html", "w", encoding="utf-8") as f:
-    f.write(INDEX_HTML)
+# No file writing – serve HTML directly from variables
 with open(TEMPLATES_DIR / "login.html", "w", encoding="utf-8") as f:
     f.write(LOGIN_HTML)
 with open(TEMPLATES_DIR / "register.html", "w", encoding="utf-8") as f:
@@ -1722,11 +1721,13 @@ with open(TEMPLATES_DIR / "admin" / "dashboard.html", "w", encoding="utf-8") as 
 # ---------- ROUTES ----------
 @app.get("/", response_class=HTMLResponse)
 async def home():
-    return HTMLResponse(content=INDEX_HTML)
+    return HTMLResponse(content=INDEX_HTML)  # Use the variable directly
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page():
     return HTMLResponse(content=LOGIN_HTML)
+
+# Same for all other routes – use the HTML variables directly
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page():
