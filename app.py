@@ -11,14 +11,13 @@ import uvicorn
 from fastapi import FastAPI, File, UploadFile, Form, Header
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from jose import JWTError, jwt
 
-
+# ---------- Load environment variables ----------
 from dotenv import load_dotenv
-load_dotenv()  # Loads variables from .env file
+load_dotenv()
 
-# ---------- Supabase client ----------
+# ---------- Supabase REST API ----------
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 if not SUPABASE_URL or not SUPABASE_KEY:
@@ -31,7 +30,6 @@ SUPABASE_HEADERS = {
 }
 
 def supabase_select(table: str, match: dict = None, order: str = None):
-    """Get records from a table"""
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     params = match or {}
     if order:
@@ -40,20 +38,17 @@ def supabase_select(table: str, match: dict = None, order: str = None):
     return response.json()
 
 def supabase_insert(table: str, data: dict):
-    """Insert a record into a table"""
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     response = httpx.post(url, headers=SUPABASE_HEADERS, json=data)
     return response.json()
 
 def supabase_update(table: str, match: dict, data: dict):
-    """Update records in a table"""
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     params = match or {}
     response = httpx.patch(url, headers=SUPABASE_HEADERS, params=params, json=data)
     return response
 
 def supabase_delete(table: str, match: dict):
-    """Delete records from a table"""
     url = f"{SUPABASE_URL}/rest/v1/{table}"
     params = match or {}
     response = httpx.delete(url, headers=SUPABASE_HEADERS, params=params)
@@ -62,18 +57,18 @@ def supabase_delete(table: str, match: dict):
 # ---------- FastAPI app ----------
 app = FastAPI(title="AI Interior & Exterior Design System")
 
-# ---------- Directories (for uploaded & generated images – writable on Vercel) ----------
+# ---------- Directories (uploads/generated images go to /tmp on Vercel) ----------
 BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_DIR = Path("/tmp/uploads") if os.getenv("VERCEL") else BASE_DIR / "uploads"
-GENERATED_DIR = Path("/tmp/generated") if os.getenv("VERCEL") else BASE_DIR / "generated"
-STATIC_DIR = BASE_DIR / "static"
-TEMPLATES_DIR = BASE_DIR / "templates"
+IS_VERCEL = os.getenv("VERCEL") == "1"
 
-for dir_path in [UPLOAD_DIR, GENERATED_DIR, STATIC_DIR, TEMPLATES_DIR]:
+UPLOAD_DIR = Path("/tmp/uploads") if IS_VERCEL else BASE_DIR / "uploads"
+GENERATED_DIR = Path("/tmp/generated") if IS_VERCEL else BASE_DIR / "generated"
+STATIC_DIR = BASE_DIR / "static"
+
+for dir_path in [UPLOAD_DIR, GENERATED_DIR, STATIC_DIR]:
     dir_path.mkdir(exist_ok=True)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
 
 # ---------- JWT Configuration ----------
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this")
@@ -92,7 +87,7 @@ def verify_token(token: str):
     except JWTError:
         return None
 
-# ---------- Helper functions for Supabase ----------
+# ---------- Database helpers ----------
 async def get_user_by_email(email: str):
     result = supabase_select("users", {"email": f"eq.{email}"})
     return result[0] if result else None
@@ -100,7 +95,6 @@ async def get_user_by_email(email: str):
 async def get_user_by_id(user_id: str):
     result = supabase_select("users", {"id": f"eq.{user_id}"})
     return result[0] if result else None
-
 
 async def create_user(email: str, username: str, hashed_password: str, full_name: str = ""):
     user_id = str(uuid.uuid4())
@@ -140,11 +134,10 @@ async def get_all_users():
     result = supabase_select("users")
     return result
 
-
 async def delete_user(user_id: str):
     supabase_delete("users", {"id": f"eq.{user_id}"})
 
-# ---------- AI image generation (unchanged) ----------
+# ---------- AI image generation ----------
 async def generate_ai_image(prompt: str, design_type: str, style: str, color_palette: dict = None, budget: int = None, location: str = None):
     full_prompt = prompt
     if location:
@@ -172,8 +165,7 @@ async def generate_ai_image(prompt: str, design_type: str, style: str, color_pal
         print(f"Error: {e}")
     return None
 
-# ========== PLACE YOUR HTML STRINGS HERE (exactly as they are in your current app.py) ==========
-# Index Page
+# ========== HTML TEMPLATES (served directly, no file writing) ==========
 INDEX_HTML = '''
 <!DOCTYPE html>
 <html>
@@ -254,7 +246,6 @@ INDEX_HTML = '''
 </html>
 '''
 
-# Login Page
 LOGIN_HTML = '''
 <!DOCTYPE html>
 <html>
@@ -347,7 +338,6 @@ LOGIN_HTML = '''
 </html>
 '''
 
-# Register Page
 REGISTER_HTML = '''
 <!DOCTYPE html>
 <html>
@@ -442,7 +432,6 @@ REGISTER_HTML = '''
 </html>
 '''
 
-# Forgot Password Page
 FORGOT_HTML = '''
 <!DOCTYPE html>
 <html>
@@ -514,7 +503,6 @@ FORGOT_HTML = '''
 </html>
 '''
 
-# Reset Password Page
 RESET_HTML = '''
 <!DOCTYPE html>
 <html>
@@ -587,7 +575,6 @@ RESET_HTML = '''
 </html>
 '''
 
-# Dashboard Page
 DASHBOARD_HTML = '''
 <!DOCTYPE html>
 <html>
@@ -685,7 +672,6 @@ DASHBOARD_HTML = '''
         <div class="content">
             <h2>My Designs</h2>
             
-            <!-- Budget Filter Bar -->
             <div class="filter-bar">
                 <label>💰 Budget Range:</label>
                 <input type="number" id="budgetMin" placeholder="Min $" value="">
@@ -703,9 +689,7 @@ DASHBOARD_HTML = '''
     
     <script>
         const token = localStorage.getItem('token');
-        if (!token) {
-            window.location.href = '/login';
-        }
+        if (!token) { window.location.href = '/login'; }
         
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (user.role === 'admin') {
@@ -715,7 +699,6 @@ DASHBOARD_HTML = '''
         
         let allDesigns = [];
         
-        // Helper function to create a design card
         function createDesignCard(design) {
             const card = document.createElement('div');
             card.className = 'design-card';
@@ -733,31 +716,23 @@ DASHBOARD_HTML = '''
             return card;
         }
         
-        // Filter designs by budget
         function filterDesigns() {
             const min = parseInt(document.getElementById('budgetMin').value);
             const max = parseInt(document.getElementById('budgetMax').value);
             const grid = document.getElementById('designsGrid');
             
             let filtered = allDesigns;
-            if (!isNaN(min)) {
-                filtered = filtered.filter(d => (d.budget || 0) >= min);
-            }
-            if (!isNaN(max)) {
-                filtered = filtered.filter(d => (d.budget || 0) <= max);
-            }
+            if (!isNaN(min)) { filtered = filtered.filter(d => (d.budget || 0) >= min); }
+            if (!isNaN(max)) { filtered = filtered.filter(d => (d.budget || 0) <= max); }
             
             if (filtered.length > 0) {
                 grid.innerHTML = '';
-                filtered.forEach(design => {
-                    grid.appendChild(createDesignCard(design));
-                });
+                filtered.forEach(design => { grid.appendChild(createDesignCard(design)); });
             } else {
                 grid.innerHTML = '<p>No designs in this budget range.</p>';
             }
         }
         
-        // Load all designs from API
         async function loadDesigns() {
             try {
                 const response = await fetch('/api/my-designs', {
@@ -777,9 +752,7 @@ DASHBOARD_HTML = '''
                 if (data.success && data.designs && data.designs.length > 0) {
                     allDesigns = data.designs;
                     grid.innerHTML = '';
-                    allDesigns.forEach(design => {
-                        grid.appendChild(createDesignCard(design));
-                    });
+                    allDesigns.forEach(design => { grid.appendChild(createDesignCard(design)); });
                 } else {
                     allDesigns = [];
                     grid.innerHTML = '<p>No designs yet. Create your first design!</p>';
@@ -790,9 +763,7 @@ DASHBOARD_HTML = '''
             }
         }
         
-        function editDesign(id) {
-            window.location.href = `/design-editor/${id}`;
-        }
+        function editDesign(id) { window.location.href = `/design-editor/${id}`; }
         
         async function deleteDesign(id) {
             if (confirm('Delete this design?')) {
@@ -800,15 +771,11 @@ DASHBOARD_HTML = '''
                     method: 'DELETE',
                     headers: { 'Authorization': 'Bearer ' + token }
                 });
-                if (response.ok) {
-                    loadDesigns();
-                } else {
-                    alert('Failed to delete design');
-                }
+                if (response.ok) { loadDesigns(); }
+                else { alert('Failed to delete design'); }
             }
         }
         
-        // Event listeners
         document.getElementById('filterBtn').addEventListener('click', filterDesigns);
         document.getElementById('resetFilterBtn').addEventListener('click', () => {
             document.getElementById('budgetMin').value = '';
@@ -826,7 +793,6 @@ DASHBOARD_HTML = '''
 </html>
 '''
 
-# Interior Design Page
 INTERIOR_HTML = '''
 <!DOCTYPE html>
 <html>
@@ -935,20 +901,16 @@ INTERIOR_HTML = '''
                 </select>
             </div>
 
-
             <div class="form-group">
-                <label>📍 Location (e.g., New York, Tokyo, Beach, Mountain)</label>
-                <input type="text" name="location" placeholder="City or style (e.g., California, Tropical, Urban)" value="Modern City">
-                <small>AI will adapt the design to this location or vibe</small>
+                <label>📍 Location</label>
+                <input type="text" name="location" placeholder="City or style" value="Modern City">
             </div>
 
             <div class="form-group">
                 <label>💰 Budget (USD)</label>
                 <input type="number" name="budget" placeholder="e.g., 5000" step="1000" value="5000">
-                <small>AI will generate a design that respects your budget</small>
             </div>
 
-            
             <div class="form-group">
                 <label>Color Palette (Optional)</label>
                 <div class="color-row">
@@ -989,9 +951,7 @@ INTERIOR_HTML = '''
     
     <script>
         const token = localStorage.getItem('token');
-        if (!token) {
-        window.location.href = '/login';
-    }
+        if (!token) { window.location.href = '/login'; }
         
         document.getElementById('imageInput').addEventListener('change', function(e) {
             const preview = document.getElementById('imagePreview');
@@ -1025,11 +985,9 @@ INTERIOR_HTML = '''
 
                 const response = await fetch('/api/generate-interior', {
                     method: 'POST',
-                    headers: {
-                            'Authorization': 'Bearer ' + token
-                        },
-                        body: formData
-            });
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    body: formData
+                });
                 const data = await response.json();
                 if (data.success) {
                     resultImage.src = data.design_url;
@@ -1044,15 +1002,12 @@ INTERIOR_HTML = '''
             }
         });
         
-        function saveAndContinue() {
-            window.location.href = '/dashboard';
-        }
+        function saveAndContinue() { window.location.href = '/dashboard'; }
     </script>
 </body>
 </html>
 '''
 
-# Exterior Design Page
 EXTERIOR_HTML = '''
 <!DOCTYPE html>
 <html>
@@ -1158,7 +1113,6 @@ EXTERIOR_HTML = '''
                 </select>
             </div>
 
-            <!-- ADD BUDGET AND LOCATION HERE -->
             <div class="form-group">
                 <label>💰 Budget (USD)</label>
                 <input type="number" name="budget" value="5000" step="1000">
@@ -1169,7 +1123,6 @@ EXTERIOR_HTML = '''
                 <input type="text" name="location" placeholder="e.g., Beach, Urban, Mountains">
             </div>
 
-            
             <div class="form-group">
                 <label>Color Palette (Optional)</label>
                 <div class="color-row">
@@ -1193,9 +1146,6 @@ EXTERIOR_HTML = '''
                 <textarea name="prompt" rows="3" placeholder="Example: Add a garden, swimming pool, large windows..."></textarea>
             </div>
             
-            <input type="hidden" name="budget" value="5000">
-            <input type="hidden" name="location" value="">
-
             <button type="submit">🏗️ Generate Design</button>
         </form>
         
@@ -1212,13 +1162,9 @@ EXTERIOR_HTML = '''
     </div>
     
     <script>
-        // Redirect if not logged in
         const token = localStorage.getItem('token');
-        if (!token) {
-            window.location.href = '/login';
-        }
+        if (!token) { window.location.href = '/login'; }
 
-        // Image preview (if you have an upload field)
         document.getElementById('imageInput')?.addEventListener('change', function(e) {
             const preview = document.getElementById('imagePreview');
             const file = e.target.files[0];
@@ -1252,9 +1198,7 @@ EXTERIOR_HTML = '''
             try {
                 const response = await fetch('/api/generate-exterior', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + token
-                    },
+                    headers: { 'Authorization': 'Bearer ' + token },
                     body: formData
                 });
 
@@ -1278,16 +1222,12 @@ EXTERIOR_HTML = '''
             }
         });
 
-        function saveAndContinue() {
-            window.location.href = '/dashboard';
-    
-        }
+        function saveAndContinue() { window.location.href = '/dashboard'; }
     </script>
 </body>
 </html>
 '''
 
-# Design Editor Page
 EDITOR_HTML = '''
 <!DOCTYPE html>
 <html>
@@ -1318,14 +1258,7 @@ EDITOR_HTML = '''
         .color-controls { padding: 20px; background: #f8f9fa; border-radius: 10px; }
         .color-group { margin-bottom: 20px; }
         .color-group label { display: block; margin-bottom: 10px; font-weight: bold; }
-        .color-group input[type="color"] { 
-            width: 100%; 
-            height: 50px; 
-            cursor: pointer; 
-            border: 2px solid #ddd; 
-            border-radius: 8px;
-            background: white;
-        }
+        .color-group input[type="color"] { width: 100%; height: 50px; cursor: pointer; border: 2px solid #ddd; border-radius: 8px; background: white; }
         button {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -1397,9 +1330,7 @@ EDITOR_HTML = '''
     
     <script>
         const token = localStorage.getItem('token');
-        if (!token) {
-            window.location.href = '/login';
-        }
+        if (!token) { window.location.href = '/login'; }
         
         const designId = window.location.pathname.split('/').pop();
         
@@ -1499,14 +1430,8 @@ ADMIN_HTML = '''
             justify-content: space-between;
             align-items: center;
         }
-        .nav a {
-            color: white;
-            text-decoration: none;
-            margin-left: 20px;
-        }
-        .content {
-            padding: 30px;
-        }
+        .nav a { color: white; text-decoration: none; margin-left: 20px; }
+        .content { padding: 30px; }
         .stats {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -1519,11 +1444,7 @@ ADMIN_HTML = '''
             border-radius: 10px;
             text-align: center;
         }
-        .stat-number {
-            font-size: 2em;
-            font-weight: bold;
-            color: #667eea;
-        }
+        .stat-number { font-size: 2em; font-weight: bold; color: #667eea; }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -1534,9 +1455,7 @@ ADMIN_HTML = '''
             text-align: left;
             border-bottom: 1px solid #ddd;
         }
-        th {
-            background: #f8f9fa;
-        }
+        th { background: #f8f9fa; }
         .btn {
             background: #dc3545;
             color: white;
@@ -1560,12 +1479,8 @@ ADMIN_HTML = '''
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
         }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
     </style>
 </head>
 <body>
@@ -1629,7 +1544,6 @@ ADMIN_HTML = '''
         }
 
         async function loadAdminData() {
-            // Load users
             const usersRes = await fetch('/api/admin/users', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -1649,7 +1563,6 @@ ADMIN_HTML = '''
                 });
             }
 
-            // Load designs
             const designsRes = await fetch('/api/admin/designs', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
@@ -1696,38 +1609,14 @@ ADMIN_HTML = '''
 </html>
 '''
 
-# Save HTML files to templates/ directory
-# No file writing – serve HTML directly from variables
-with open(TEMPLATES_DIR / "login.html", "w", encoding="utf-8") as f:
-    f.write(LOGIN_HTML)
-with open(TEMPLATES_DIR / "register.html", "w", encoding="utf-8") as f:
-    f.write(REGISTER_HTML)
-with open(TEMPLATES_DIR / "forgot_password.html", "w", encoding="utf-8") as f:
-    f.write(FORGOT_HTML)
-with open(TEMPLATES_DIR / "reset_password.html", "w", encoding="utf-8") as f:
-    f.write(RESET_HTML)
-with open(TEMPLATES_DIR / "dashboard.html", "w", encoding="utf-8") as f:
-    f.write(DASHBOARD_HTML)
-with open(TEMPLATES_DIR / "interior.html", "w", encoding="utf-8") as f:
-    f.write(INTERIOR_HTML)
-with open(TEMPLATES_DIR / "exterior.html", "w", encoding="utf-8") as f:
-    f.write(EXTERIOR_HTML)
-with open(TEMPLATES_DIR / "design_editor.html", "w", encoding="utf-8") as f:
-    f.write(EDITOR_HTML)
-(TEMPLATES_DIR / "admin").mkdir(exist_ok=True)
-with open(TEMPLATES_DIR / "admin" / "dashboard.html", "w", encoding="utf-8") as f:
-    f.write(ADMIN_HTML)
-
-# ---------- ROUTES ----------
+# ========== ROUTES (serve HTML directly – NO FILE WRITING) ==========
 @app.get("/", response_class=HTMLResponse)
 async def home():
-    return HTMLResponse(content=INDEX_HTML)  # Use the variable directly
+    return HTMLResponse(content=INDEX_HTML)
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page():
     return HTMLResponse(content=LOGIN_HTML)
-
-# Same for all other routes – use the HTML variables directly
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page():
@@ -1744,7 +1633,6 @@ async def reset_password_page():
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page():
     return HTMLResponse(content=DASHBOARD_HTML)
-
 
 @app.get("/interior", response_class=HTMLResponse)
 async def interior_page():
@@ -1768,7 +1656,7 @@ async def logout():
     response.delete_cookie("token")
     return response
 
-# ---------- API ENDPOINTS (using Supabase) ----------
+# ========== API ENDPOINTS ==========
 @app.post("/api/register")
 async def register(
     email: str = Form(...),
@@ -1955,7 +1843,6 @@ async def update_design(
     if not payload:
         return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
     
-    # Fetch existing design
     result = supabase_select("designs", {"id": f"eq.{design_id}", "user_id": f"eq.{payload.get('sub')}"})
     if not result:
         return JSONResponse({"success": False, "error": "Design not found"}, status_code=404)
@@ -1980,7 +1867,6 @@ async def update_design(
     }
     supabase_update("designs", {"id": f"eq.{design_id}"}, updates)
     return JSONResponse({"success": True, "design_url": new_image_url})
-
 
 @app.get("/api/my-designs")
 async def get_my_designs(authorization: Optional[str] = Header(None)):
@@ -2013,7 +1899,6 @@ async def admin_get_users(authorization: Optional[str] = Header(None)):
     if not payload or payload.get("role") != "admin":
         return JSONResponse({"success": False, "error": "Admin access required"}, status_code=403)
     users = await get_all_users()
-    # Remove passwords
     users_clean = [{k: v for k, v in u.items() if k != "password"} for u in users]
     return JSONResponse({"success": True, "users": users_clean})
 
