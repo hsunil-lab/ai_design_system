@@ -1,4 +1,3 @@
-import json
 import os
 import shutil
 import uuid
@@ -9,104 +8,40 @@ from typing import Optional
 import bcrypt
 import httpx
 import uvicorn
-from fastapi import FastAPI, File, UploadFile, Form, Request, Depends, HTTPException, status, Header
+from fastapi import FastAPI, File, UploadFile, Form, Header
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jose import JWTError, jwt
-
-import bcrypt
-from jose import jwt
-from datetime import datetime, timedelta
-
-
 from supabase import create_client, Client
 
-SUPABASE_URL = "https://skgwjewchckdrwjguqwm.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrZ3dqZXdjaGNrZHJ3amd1cXdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MzU2MTksImV4cCI6MjA5MjMxMTYxOX0.Ek5RQgeQN8tkwDaw_knW-4nguRIbLljruyg0GFFErMM"  # replace with your actual anon key
+# ---------- Supabase client ----------
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise Exception("Missing SUPABASE_URL or SUPABASE_KEY environment variables")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-
+# ---------- FastAPI app ----------
 app = FastAPI(title="AI Interior & Exterior Design System")
 
-# Setup directories
+# ---------- Directories (for uploaded & generated images – writable on Vercel) ----------
 BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_DIR = BASE_DIR / "uploads"
-GENERATED_DIR = BASE_DIR / "generated"
+UPLOAD_DIR = Path("/tmp/uploads") if os.getenv("VERCEL") else BASE_DIR / "uploads"
+GENERATED_DIR = Path("/tmp/generated") if os.getenv("VERCEL") else BASE_DIR / "generated"
 STATIC_DIR = BASE_DIR / "static"
 TEMPLATES_DIR = BASE_DIR / "templates"
-DATA_DIR = BASE_DIR / "data"
 
-for dir_path in [UPLOAD_DIR, GENERATED_DIR, STATIC_DIR, TEMPLATES_DIR, DATA_DIR]:
+for dir_path in [UPLOAD_DIR, GENERATED_DIR, STATIC_DIR, TEMPLATES_DIR]:
     dir_path.mkdir(exist_ok=True)
-
-# Create admin directory
-(TEMPLATES_DIR / "admin").mkdir(exist_ok=True)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# JWT Configuration
-SECRET_KEY = "your-secret-key-change-this"
+# ---------- JWT Configuration ----------
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-# Database file paths
-USERS_FILE = DATA_DIR / "users.json"
-DESIGNS_FILE = DATA_DIR / "designs.json"
-
-# Initialize database
-def init_db():
-    # Initialize users.json
-    if not USERS_FILE.exists():
-        admin_password = bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        users = {"users": [{
-            "id": "1",
-            "email": "admin@designsystem.com",
-            "username": "admin",
-            "password": admin_password,
-            "full_name": "Admin User",
-            "role": "admin",
-            "created_at": datetime.now().isoformat(),
-            "reset_token": None,
-            "reset_token_expiry": None
-        }]}
-        with open(USERS_FILE, 'w') as f:
-            json.dump(users, f, indent=2)
-        print(f"✅ Created {USERS_FILE}")
-    
-    # Initialize designs.json
-    if not DESIGNS_FILE.exists():
-        designs = {"designs": []}
-        with open(DESIGNS_FILE, 'w') as f:
-            json.dump(designs, f, indent=2)
-        print(f"✅ Created {DESIGNS_FILE}")
-    
-    # Validate designs.json structure
-    try:
-        with open(DESIGNS_FILE, 'r') as f:
-            designs_data = json.load(f)
-        if "designs" not in designs_data or not isinstance(designs_data["designs"], list):
-            print("⚠️ Corrupted designs.json, reinitializing...")
-            designs_data = {"designs": []}
-            with open(DESIGNS_FILE, 'w') as f:
-                json.dump(designs_data, f, indent=2)
-    except json.JSONDecodeError:
-        print("⚠️ Invalid JSON in designs.json, reinitializing...")
-        designs = {"designs": []}
-        with open(DESIGNS_FILE, 'w') as f:
-            json.dump(designs, f, indent=2)
-
-init_db()  # Call this after defining USERS_FILE
-
-
-# Helper functions
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-
-def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -117,92 +52,68 @@ def create_access_token(data: dict):
 def verify_token(token: str):
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except:
+    except JWTError:
         return None
 
-# ============= SAFE FILE OPERATIONS =============
-def read_json_file(filepath, default=None):
-    """Safely read and parse JSON file with fallback"""
-    try:
-        with open(filepath, 'r') as f:
-            return json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError) as e:
-        print(f"⚠️ Error reading {filepath}: {e}")
-        return default or {}
+# ---------- Helper functions for Supabase ----------
+async def get_user_by_email(email: str):
+    res = supabase.table("users").select("*").eq("email", email).execute()
+    return res.data[0] if res.data else None
 
-def write_json_file(filepath, data):
-    """Safely write JSON file with backup"""
-    try:
-        # Create backup if file exists
-        if filepath.exists():
-            backup_path = filepath.with_suffix('.bak')
-            shutil.copy(filepath, backup_path)
-        
-        with open(filepath, 'w') as f:
-            json.dump(data, f, indent=2)
-        print(f"✅ Saved {filepath.name}")
-        return True
-    except Exception as e:
-        print(f"❌ Error writing {filepath}: {e}")
-        return False
+async def get_user_by_id(user_id: str):
+    res = supabase.table("users").select("*").eq("id", user_id).execute()
+    return res.data[0] if res.data else None
 
-# ============= SUPABASE INTEGRATION =============
-def save_user_to_supabase(user_data):
-    """Save user to Supabase 'profiles' table"""
-    try:
-        # Prepare data for Supabase
-        sb_user = {
-            "id": user_data.get("id"),
-            "email": user_data.get("email"),
-            "username": user_data.get("username"),
-            "full_name": user_data.get("full_name"),
-            "role": user_data.get("role", "user"),
-            "created_at": user_data.get("created_at")
-        }
-        # Insert into profiles table
-        response = supabase.table("profiles").insert(sb_user).execute()
-        print(f"✅ User saved to Supabase: {user_data.get('email')}")
-        return True
-    except Exception as e:
-        print(f"⚠️ Warning: Could not save user to Supabase: {e}")
-        # Don't fail - local storage is sufficient
-        return False
+async def create_user(email: str, username: str, hashed_password: str, full_name: str = ""):
+    user_id = str(uuid.uuid4())
+    data = {
+        "id": user_id,
+        "email": email,
+        "username": username,
+        "password": hashed_password,
+        "full_name": full_name,
+        "role": "user",
+        "created_at": datetime.now().isoformat(),
+        "reset_token": None,
+        "reset_token_expiry": None
+    }
+    supabase.table("users").insert(data).execute()
+    return data
 
-def save_design_to_supabase(design_data):
-    """Save design to Supabase 'designs' table"""
-    try:
-        # Prepare data for Supabase
-        sb_design = {
-            "id": design_data.get("id"),
-            "user_id": design_data.get("user_id"),
-            "type": design_data.get("type"),
-            "style": design_data.get("style"),
-            "prompt": design_data.get("prompt"),
-            "budget": design_data.get("budget"),
-            "location": design_data.get("location"),
-            "generated_image_url": design_data.get("generated_image_url"),
-            "created_at": design_data.get("created_at")
-        }
-        # Insert into designs table
-        response = supabase.table("interior_designs" if design_data.get("type") == "interior" else "exterior_designs").insert(sb_design).execute()
-        print(f"✅ Design saved to Supabase: {design_data.get('id')}")
-        return True
-    except Exception as e:
-        print(f"⚠️ Warning: Could not save design to Supabase: {e}")
-        # Don't fail - local storage is sufficient
-        return False
+async def update_user(user_id: str, updates: dict):
+    supabase.table("users").update(updates).eq("id", user_id).execute()
 
+async def save_design(design_data: dict):
+    supabase.table("designs").insert(design_data).execute()
+    return design_data
+
+async def get_user_designs(user_id: str):
+    res = supabase.table("designs").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    return res.data
+
+async def get_all_designs():
+    res = supabase.table("designs").select("*").order("created_at", desc=True).execute()
+    return res.data
+
+async def delete_design(design_id: str, user_id: str):
+    supabase.table("designs").delete().eq("id", design_id).eq("user_id", user_id).execute()
+
+async def get_all_users():
+    res = supabase.table("users").select("*").execute()
+    return res.data
+
+async def delete_user(user_id: str):
+    supabase.table("users").delete().eq("id", user_id).execute()
+
+# ---------- AI image generation (unchanged) ----------
 async def generate_ai_image(prompt: str, design_type: str, style: str, color_palette: dict = None, budget: int = None, location: str = None):
-    # Build a rich prompt that includes budget and location
     full_prompt = prompt
-    
     if location:
         full_prompt += f", suitable for {location} area"
     if budget:
         full_prompt += f", designed within ${budget} budget using cost-effective materials"
     if color_palette:
         full_prompt += f", color scheme: {color_palette.get('primary')}, {color_palette.get('secondary')}, {color_palette.get('accent')}"
-    
     full_prompt += f", {style} style, {design_type}, high quality, detailed, professional"
     
     import urllib.parse
@@ -221,8 +132,9 @@ async def generate_ai_image(prompt: str, design_type: str, style: str, color_pal
     except Exception as e:
         print(f"Error: {e}")
     return None
-# ============= HTML TEMPLATES =============
 
+
+# ========== PLACE YOUR HTML STRINGS HERE (exactly as they are in your current app.py) ==========
 # Index Page
 INDEX_HTML = '''
 <!DOCTYPE html>
@@ -1746,8 +1658,7 @@ ADMIN_HTML = '''
 </html>
 '''
 
-
-# Save all HTML templates
+# Save HTML files to templates/ directory
 with open(TEMPLATES_DIR / "index.html", "w", encoding="utf-8") as f:
     f.write(INDEX_HTML)
 with open(TEMPLATES_DIR / "login.html", "w", encoding="utf-8") as f:
@@ -1766,15 +1677,14 @@ with open(TEMPLATES_DIR / "exterior.html", "w", encoding="utf-8") as f:
     f.write(EXTERIOR_HTML)
 with open(TEMPLATES_DIR / "design_editor.html", "w", encoding="utf-8") as f:
     f.write(EDITOR_HTML)
+(TEMPLATES_DIR / "admin").mkdir(exist_ok=True)
 with open(TEMPLATES_DIR / "admin" / "dashboard.html", "w", encoding="utf-8") as f:
     f.write(ADMIN_HTML)
 
-# ============= API ROUTES =============
-
+# ---------- ROUTES ----------
 @app.get("/", response_class=HTMLResponse)
 async def home():
-    with open(TEMPLATES_DIR / "index.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+    return HTMLResponse(content=INDEX_HTML)
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page():
@@ -1786,104 +1696,31 @@ async def register_page():
 
 @app.get("/forgot-password", response_class=HTMLResponse)
 async def forgot_password_page():
-    with open(TEMPLATES_DIR / "forgot_password.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+    return HTMLResponse(content=FORGOT_HTML)
 
 @app.get("/reset-password", response_class=HTMLResponse)
 async def reset_password_page():
-    with open(TEMPLATES_DIR / "reset_password.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
-        
+    return HTMLResponse(content=RESET_HTML)
+
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page():
-    # Serve the dashboard HTML; client-side JS will check token
-    with open(TEMPLATES_DIR / "dashboard.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+    return HTMLResponse(content=DASHBOARD_HTML)
 
 @app.get("/interior", response_class=HTMLResponse)
 async def interior_page():
-    with open(TEMPLATES_DIR / "interior.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+    return HTMLResponse(content=INTERIOR_HTML)
 
 @app.get("/exterior", response_class=HTMLResponse)
 async def exterior_page():
-    with open(TEMPLATES_DIR / "exterior.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+    return HTMLResponse(content=EXTERIOR_HTML)
 
 @app.get("/design-editor/{design_id}", response_class=HTMLResponse)
 async def design_editor_page(design_id: str):
-    with open(TEMPLATES_DIR / "design_editor.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+    return HTMLResponse(content=EDITOR_HTML)
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page():
-    # Serve the admin HTML; client-side JavaScript will check token & role
-    with open(TEMPLATES_DIR / "admin" / "dashboard.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
-
-@app.get("/logout")
-async def logout():
-    return RedirectResponse(url="/login")
-
-# ============= API ENDPOINTS =============
-
-@app.post("/api/login")
-async def login(email: str = Form(...), password: str = Form(...)):
-    with open(USERS_FILE, 'r') as f:
-        users_data = json.load(f)
-    for user in users_data["users"]:
-        if user["email"] == email and verify_password(password, user["password"]):
-            token = create_access_token({"sub": user["id"], "email": user["email"], "role": user["role"]})
-            user_copy = {k: v for k, v in user.items() if k != "password"}
-            return JSONResponse({"success": True, "token": token, "user": user_copy})
-    return JSONResponse({"success": False, "error": "Invalid credentials"}, status_code=401)
-
-@app.post("/api/register")
-async def register(
-    email: str = Form(...),
-    username: str = Form(...),
-    password: str = Form(...),
-    full_name: str = Form("")
-):
-    try:
-        users_data = read_json_file(USERS_FILE, {"users": []})
-        
-        # Check if user already exists
-        for user in users_data.get("users", []):
-            if user.get("email") == email or user.get("username") == username:
-                return JSONResponse({"success": False, "error": "User already exists"}, status_code=400)
-        
-        # Create new user
-        new_user = {
-            "id": str(len(users_data.get("users", [])) + 1),
-            "email": email,
-            "username": username,
-            "password": hash_password(password),
-            "full_name": full_name,
-            "role": "user",
-            "created_at": datetime.now().isoformat(),
-            "reset_token": None,
-            "reset_token_expiry": None
-        }
-        
-        # Save to local file
-        users_data["users"].append(new_user)
-        if not write_json_file(USERS_FILE, users_data):
-            return JSONResponse({"success": False, "error": "Failed to save user"}, status_code=500)
-        
-        # Save to Supabase (non-blocking)
-        save_user_to_supabase(new_user)
-        
-        # Create token
-        token = create_access_token({"sub": new_user["id"], "email": new_user["email"], "role": new_user["role"]})
-        new_user_copy = {k: v for k, v in new_user.items() if k != "password"}
-        
-        return JSONResponse({"success": True, "token": token, "user": new_user_copy})
-    except Exception as e:
-        print(f"❌ Error in register: {e}")
-        import traceback
-        traceback.print_exc()
-        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+    return HTMLResponse(content=ADMIN_HTML)
 
 @app.get("/logout")
 async def logout():
@@ -1891,59 +1728,70 @@ async def logout():
     response.delete_cookie("token")
     return response
 
-    
+# ---------- API ENDPOINTS (using Supabase) ----------
+@app.post("/api/register")
+async def register(
+    email: str = Form(...),
+    username: str = Form(...),
+    password: str = Form(...),
+    full_name: str = Form("")
+):
+    existing = await get_user_by_email(email)
+    if existing:
+        return JSONResponse({"success": False, "error": "Email already registered"}, status_code=400)
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    new_user = await create_user(email, username, hashed, full_name)
+    token = create_access_token({"sub": new_user["id"], "email": new_user["email"], "role": new_user["role"]})
+    user_copy = {k: v for k, v in new_user.items() if k != "password"}
+    return JSONResponse({"success": True, "token": token, "user": user_copy})
+
+@app.post("/api/login")
+async def login(email: str = Form(...), password: str = Form(...)):
+    user = await get_user_by_email(email)
+    if not user:
+        return JSONResponse({"success": False, "error": "Invalid credentials"}, status_code=401)
+    if not bcrypt.checkpw(password.encode('utf-8'), user["password"].encode('utf-8')):
+        return JSONResponse({"success": False, "error": "Invalid credentials"}, status_code=401)
+    token = create_access_token({"sub": user["id"], "email": user["email"], "role": user["role"]})
+    user_copy = {k: v for k, v in user.items() if k != "password"}
+    return JSONResponse({"success": True, "token": token, "user": user_copy})
+
 @app.post("/api/forgot-password")
 async def forgot_password(email: str = Form(...)):
-    with open(USERS_FILE, 'r') as f:
-        users_data = json.load(f)
-    
-    for user in users_data["users"]:
-        if user["email"] == email:
-            reset_token = str(uuid.uuid4())
-            user["reset_token"] = reset_token
-            user["reset_token_expiry"] = (datetime.now() + timedelta(hours=1)).isoformat()
-            with open(USERS_FILE, 'w') as f:
-                json.dump(users_data, f, indent=2)
-            return JSONResponse({"success": True, "reset_token": reset_token})
-    
-    return JSONResponse({"success": False, "error": "Email not found"}, status_code=404)
+    user = await get_user_by_email(email)
+    if not user:
+        return JSONResponse({"success": False, "error": "Email not found"}, status_code=404)
+    reset_token = str(uuid.uuid4())
+    expiry = (datetime.now() + timedelta(hours=1)).isoformat()
+    await update_user(user["id"], {"reset_token": reset_token, "reset_token_expiry": expiry})
+    return JSONResponse({"success": True, "reset_token": reset_token})
 
 @app.post("/api/reset-password")
 async def reset_password(token: str = Form(...), new_password: str = Form(...)):
-    with open(USERS_FILE, 'r') as f:
-        users_data = json.load(f)
-    
-    for user in users_data["users"]:
-        if user["reset_token"] == token:
-            if datetime.fromisoformat(user["reset_token_expiry"]) > datetime.now():
-                user["password"] = hash_password(new_password)
-                user["reset_token"] = None
-                user["reset_token_expiry"] = None
-                with open(USERS_FILE, 'w') as f:
-                    json.dump(users_data, f, indent=2)
-                return JSONResponse({"success": True})
-    
-    return JSONResponse({"success": False, "error": "Invalid or expired token"}, status_code=400)
+    # Find user with this token and not expired
+    res = supabase.table("users").select("*").eq("reset_token", token).execute()
+    if not res.data:
+        return JSONResponse({"success": False, "error": "Invalid token"}, status_code=400)
+    user = res.data[0]
+    if datetime.fromisoformat(user["reset_token_expiry"]) < datetime.now():
+        return JSONResponse({"success": False, "error": "Token expired"}, status_code=400)
+    hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    await update_user(user["id"], {"password": hashed, "reset_token": None, "reset_token_expiry": None})
+    return JSONResponse({"success": True})
 
 @app.get("/api/user")
 async def get_current_user(authorization: str = None):
-    if not authorization:
+    if not authorization or not authorization.startswith("Bearer "):
         return JSONResponse({"success": False}, status_code=401)
-    
     token = authorization.replace("Bearer ", "")
     payload = verify_token(token)
     if not payload:
         return JSONResponse({"success": False}, status_code=401)
-    
-    with open(USERS_FILE, 'r') as f:
-        users_data = json.load(f)
-    
-    for user in users_data["users"]:
-        if user["id"] == payload.get("sub"):
-            return JSONResponse({"success": True, "user": user})
-    
-    return JSONResponse({"success": False}, status_code=401)
-
+    user = await get_user_by_id(payload.get("sub"))
+    if not user:
+        return JSONResponse({"success": False}, status_code=401)
+    user_copy = {k: v for k, v in user.items() if k != "password"}
+    return JSONResponse({"success": True, "user": user_copy})
 
 @app.post("/api/generate-interior")
 async def generate_interior(
@@ -1958,72 +1806,46 @@ async def generate_interior(
     location: str = Form(""),
     authorization: Optional[str] = Header(None)
 ):
-    try:
-        token = None
-        if authorization and authorization.startswith("Bearer "):
-            token = authorization.replace("Bearer ", "")
-        
-        payload = verify_token(token) if token else None
-        if not payload:
-            return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
-        
-        color_palette = None
-        if color_primary:
-            color_palette = {"primary": color_primary, "secondary": color_secondary, "accent": color_accent}
-        
-        full_prompt = f"{room_type}, {prompt if prompt else 'beautiful interior design'}, {style} style"
-        
-        # Generate AI image
-        image_url = await generate_ai_image(full_prompt, "interior", style, color_palette, budget, location)
-        
-        if not image_url:
-            return JSONResponse({"success": False, "error": "AI image generation failed"}, status_code=500)
-        
-        # Read designs data
-        designs_data = read_json_file(DESIGNS_FILE, {"designs": []})
-        
-        # Create design record
-        design_data = {
-            "id": str(len(designs_data.get("designs", [])) + 1),
-            "user_id": payload.get("sub"),
-            "type": "interior",
-            "room_type": room_type,
-            "style": style,
-            "prompt": prompt,
-            "budget": budget,
-            "location": location,
-            "color_palette": color_palette,
-            "generated_image_url": image_url,
-            "created_at": datetime.now().isoformat()
-        }
-        
-        # Save uploaded image if provided
-        if image and image.filename:
-            try:
-                upload_filename = f"upload_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{image.filename}"
-                upload_path = UPLOAD_DIR / upload_filename
-                with open(upload_path, "wb") as buffer:
-                    shutil.copyfileobj(image.file, buffer)
-                design_data["original_image_url"] = f"/uploads/{upload_filename}"
-            except Exception as e:
-                print(f"⚠️ Warning: Could not save uploaded image: {e}")
-        
-        # Save to local file
-        designs_data["designs"].append(design_data)
-        if not write_json_file(DESIGNS_FILE, designs_data):
-            return JSONResponse({"success": False, "error": "Failed to save design"}, status_code=500)
-        
-        # Save to Supabase (non-blocking)
-        save_design_to_supabase(design_data)
-        
-        return JSONResponse({"success": True, "design_url": image_url, "design_id": design_data["id"]})
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+    payload = verify_token(token) if token else None
+    if not payload:
+        return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
     
-    except Exception as e:
-        print(f"❌ ERROR in generate-interior: {e}")
-        import traceback
-        traceback.print_exc()
-        return JSONResponse({"success": False, "error": str(e)}, status_code=500)    
-
+    color_palette = None
+    if color_primary:
+        color_palette = {"primary": color_primary, "secondary": color_secondary, "accent": color_accent}
+    
+    full_prompt = f"{room_type}, {prompt if prompt else 'beautiful interior design'}, {style} style"
+    image_url = await generate_ai_image(full_prompt, "interior", style, color_palette, budget, location)
+    if not image_url:
+        return JSONResponse({"success": False, "error": "AI generation failed"}, status_code=500)
+    
+    original_url = None
+    if image and image.filename:
+        upload_filename = f"upload_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{image.filename}"
+        upload_path = UPLOAD_DIR / upload_filename
+        with open(upload_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+        original_url = f"/uploads/{upload_filename}"
+    
+    design_data = {
+        "id": str(uuid.uuid4()),
+        "user_id": payload.get("sub"),
+        "type": "interior",
+        "room_type": room_type,
+        "style": style,
+        "prompt": prompt,
+        "budget": budget,
+        "location": location,
+        "color_palette": color_palette,
+        "generated_image_url": image_url,
+        "original_image_url": original_url,
+        "created_at": datetime.now().isoformat()
+    }
+    await save_design(design_data)
+    return JSONResponse({"success": True, "design_url": image_url, "design_id": design_data["id"]})
 
 @app.post("/api/generate-exterior")
 async def generate_exterior(
@@ -2038,72 +1860,46 @@ async def generate_exterior(
     location: str = Form(""),
     authorization: Optional[str] = Header(None)
 ):
-    try:
-        token = None
-        if authorization and authorization.startswith("Bearer "):
-            token = authorization.replace("Bearer ", "")
-        
-        payload = verify_token(token) if token else None
-        if not payload:
-            return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
-        
-        color_palette = None
-        if color_primary:
-            color_palette = {"primary": color_primary, "secondary": color_secondary, "accent": color_accent}
-        
-        full_prompt = f"{building_type}, {prompt if prompt else 'beautiful exterior design'}, {style} style"
-        
-        # Generate AI image
-        image_url = await generate_ai_image(full_prompt, "exterior", style, color_palette, budget, location)
-        
-        if not image_url:
-            return JSONResponse({"success": False, "error": "AI image generation failed"}, status_code=500)
-        
-        # Read designs data
-        designs_data = read_json_file(DESIGNS_FILE, {"designs": []})
-        
-        # Create design record
-        design_data = {
-            "id": str(len(designs_data.get("designs", [])) + 1),
-            "user_id": payload.get("sub"),
-            "type": "exterior",
-            "building_type": building_type,
-            "style": style,
-            "prompt": prompt,
-            "budget": budget,
-            "location": location,
-            "color_palette": color_palette,
-            "generated_image_url": image_url,
-            "created_at": datetime.now().isoformat()
-        }
-        
-        # Save uploaded image if provided
-        if image and image.filename:
-            try:
-                upload_filename = f"upload_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{image.filename}"
-                upload_path = UPLOAD_DIR / upload_filename
-                with open(upload_path, "wb") as buffer:
-                    shutil.copyfileobj(image.file, buffer)
-                design_data["original_image_url"] = f"/uploads/{upload_filename}"
-            except Exception as e:
-                print(f"⚠️ Warning: Could not save uploaded image: {e}")
-        
-        # Save to local file
-        designs_data["designs"].append(design_data)
-        if not write_json_file(DESIGNS_FILE, designs_data):
-            return JSONResponse({"success": False, "error": "Failed to save design"}, status_code=500)
-        
-        # Save to Supabase (non-blocking)
-        save_design_to_supabase(design_data)
-        
-        return JSONResponse({"success": True, "design_url": image_url, "design_id": design_data["id"]})
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
+    payload = verify_token(token) if token else None
+    if not payload:
+        return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
     
-    except Exception as e:
-        print(f"❌ ERROR in generate-exterior: {e}")
-        import traceback
-        traceback.print_exc()
-        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
-
+    color_palette = None
+    if color_primary:
+        color_palette = {"primary": color_primary, "secondary": color_secondary, "accent": color_accent}
+    
+    full_prompt = f"{building_type}, {prompt if prompt else 'beautiful exterior design'}, {style} style"
+    image_url = await generate_ai_image(full_prompt, "exterior", style, color_palette, budget, location)
+    if not image_url:
+        return JSONResponse({"success": False, "error": "AI generation failed"}, status_code=500)
+    
+    original_url = None
+    if image and image.filename:
+        upload_filename = f"upload_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{image.filename}"
+        upload_path = UPLOAD_DIR / upload_filename
+        with open(upload_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+        original_url = f"/uploads/{upload_filename}"
+    
+    design_data = {
+        "id": str(uuid.uuid4()),
+        "user_id": payload.get("sub"),
+        "type": "exterior",
+        "building_type": building_type,
+        "style": style,
+        "prompt": prompt,
+        "budget": budget,
+        "location": location,
+        "color_palette": color_palette,
+        "generated_image_url": image_url,
+        "original_image_url": original_url,
+        "created_at": datetime.now().isoformat()
+    }
+    await save_design(design_data)
+    return JSONResponse({"success": True, "design_url": image_url, "design_id": design_data["id"]})
 
 @app.post("/api/update-design/{design_id}")
 async def update_design(
@@ -2116,92 +1912,56 @@ async def update_design(
     token = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization.replace("Bearer ", "")
-    
     payload = verify_token(token) if token else None
     if not payload:
         return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
     
-    with open(DESIGNS_FILE, 'r') as f:
-        designs_data = json.load(f)
+    # Fetch existing design
+    res = supabase.table("designs").select("*").eq("id", design_id).eq("user_id", payload.get("sub")).execute()
+    if not res.data:
+        return JSONResponse({"success": False, "error": "Design not found"}, status_code=404)
+    design = res.data[0]
     
-    for design in designs_data["designs"]:
-        if design["id"] == design_id and design["user_id"] == payload.get("sub"):
-            prompt = design.get("prompt", "")
-            style = design.get("style", "modern")
-            design_type = design.get("type", "interior")
-            budget = design.get("budget", 5000)
-            location = design.get("location", "")
-            
-            color_palette = {
-                "primary": color_primary,
-                "secondary": color_secondary,
-                "accent": color_accent
-            }
-            
-            # Build a strong color prompt
-            full_prompt = f"{prompt}, {style} style, dominant colors: primary {color_primary}, secondary {color_secondary}, accent {color_accent}"
-            
-            new_image_url = await generate_ai_image(full_prompt, design_type, style, color_palette, budget, location)
-            
-            if new_image_url:
-                design["color_palette"] = color_palette
-                design["generated_image_url"] = new_image_url
-                design["updated_at"] = datetime.now().isoformat()
-                
-                with open(DESIGNS_FILE, 'w') as f:
-                    json.dump(designs_data, f, indent=2)
-                
-                return JSONResponse({"success": True, "design_url": new_image_url})
-            else:
-                return JSONResponse({"success": False, "error": "AI generation failed"}, status_code=500)
+    color_palette = {"primary": color_primary, "secondary": color_secondary, "accent": color_accent}
+    prompt = design.get("prompt", "")
+    style = design.get("style", "modern")
+    design_type = design.get("type", "interior")
+    budget = design.get("budget", 5000)
+    location = design.get("location", "")
     
-    return JSONResponse({"success": False, "error": "Design not found"}, status_code=404)
+    full_prompt = f"{prompt}, {style} style, dominant colors: primary {color_primary}, secondary {color_secondary}, accent {color_accent}"
+    new_image_url = await generate_ai_image(full_prompt, design_type, style, color_palette, budget, location)
+    if not new_image_url:
+        return JSONResponse({"success": False, "error": "AI generation failed"}, status_code=500)
+    
+    updates = {
+        "color_palette": color_palette,
+        "generated_image_url": new_image_url,
+        "updated_at": datetime.now().isoformat()
+    }
+    supabase.table("designs").update(updates).eq("id", design_id).execute()
+    return JSONResponse({"success": True, "design_url": new_image_url})
 
-
-    
 @app.get("/api/my-designs")
 async def get_my_designs(authorization: Optional[str] = Header(None)):
-    print(f"🔍 Authorization header: {authorization}")
     token = None
     if authorization and authorization.startswith("Bearer "):
-        token = authorization.replace("Bearer ", "")
-        print(f"🔍 Extracted token (first 20 chars): {token[:20]}...")
-    else:
-        print("❌ No Bearer token in header")
-    
+        token = authorization.replace("Bearer ", ")
     payload = verify_token(token) if token else None
     if not payload:
-        print("❌ Token verification failed")
         return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
-    
-    print(f"✅ Token payload: {payload}")
-    try:
-        designs_data = read_json_file(DESIGNS_FILE, {"designs": []})
-        user_designs = [d for d in designs_data.get("designs", []) if str(d.get("user_id")) == str(payload.get("sub"))]
-        user_designs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-        return JSONResponse({"success": True, "designs": user_designs})
-    except Exception as e:
-        print(f"❌ Error reading designs: {e}")
-        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+    designs = await get_user_designs(payload.get("sub"))
+    return JSONResponse({"success": True, "designs": designs})
 
 @app.delete("/api/delete-design/{design_id}")
 async def delete_design(design_id: str, authorization: Optional[str] = Header(None)):
     token = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization.replace("Bearer ", "")
-    
     payload = verify_token(token) if token else None
     if not payload:
         return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
-    
-    with open(DESIGNS_FILE, 'r') as f:
-        designs_data = json.load(f)
-    
-    designs_data["designs"] = [d for d in designs_data["designs"] if not (d["id"] == design_id and d["user_id"] == payload.get("sub"))]
-    
-    with open(DESIGNS_FILE, 'w') as f:
-        json.dump(designs_data, f, indent=2)
-    
+    await delete_design(design_id, payload.get("sub"))
     return JSONResponse({"success": True})
 
 @app.get("/api/admin/users")
@@ -2209,67 +1969,36 @@ async def admin_get_users(authorization: Optional[str] = Header(None)):
     token = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization.replace("Bearer ", "")
-    
     payload = verify_token(token) if token else None
     if not payload or payload.get("role") != "admin":
         return JSONResponse({"success": False, "error": "Admin access required"}, status_code=403)
-    
-    with open(USERS_FILE, 'r') as f:
-        users_data = json.load(f)
-    
-    # Remove passwords for security
-    users_without_passwords = []
-    for user in users_data["users"]:
-        user_copy = {k: v for k, v in user.items() if k != "password"}
-        users_without_passwords.append(user_copy)
-    
-    return JSONResponse({"success": True, "users": users_without_passwords})
+    users = await get_all_users()
+    # Remove passwords
+    users_clean = [{k: v for k, v in u.items() if k != "password"} for u in users]
+    return JSONResponse({"success": True, "users": users_clean})
 
 @app.get("/api/admin/designs")
 async def admin_get_designs(authorization: Optional[str] = Header(None)):
     token = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization.replace("Bearer ", "")
-    
     payload = verify_token(token) if token else None
     if not payload or payload.get("role") != "admin":
         return JSONResponse({"success": False, "error": "Admin access required"}, status_code=403)
-    
-    with open(DESIGNS_FILE, 'r') as f:
-        designs_data = json.load(f)
-    
-    return JSONResponse({"success": True, "designs": designs_data["designs"]})
+    designs = await get_all_designs()
+    return JSONResponse({"success": True, "designs": designs})
 
 @app.post("/api/admin/delete-user/{user_id}")
 async def admin_delete_user(user_id: str, authorization: Optional[str] = Header(None)):
     token = None
     if authorization and authorization.startswith("Bearer "):
         token = authorization.replace("Bearer ", "")
-    
     payload = verify_token(token) if token else None
     if not payload or payload.get("role") != "admin":
         return JSONResponse({"success": False, "error": "Admin access required"}, status_code=403)
-    
-    # Cannot delete the admin themselves
     if user_id == payload.get("sub"):
-        return JSONResponse({"success": False, "error": "Cannot delete your own admin account"}, status_code=400)
-    
-    # Delete user from users.json
-    with open(USERS_FILE, 'r') as f:
-        users_data = json.load(f)
-    
-    users_data["users"] = [u for u in users_data["users"] if u["id"] != user_id]
-    with open(USERS_FILE, 'w') as f:
-        json.dump(users_data, f, indent=2)
-    
-    # Delete user's designs from designs.json
-    with open(DESIGNS_FILE, 'r') as f:
-        designs_data = json.load(f)
-    
-    designs_data["designs"] = [d for d in designs_data["designs"] if d["user_id"] != user_id]
-    with open(DESIGNS_FILE, 'w') as f:
-        json.dump(designs_data, f, indent=2)
-    
+        return JSONResponse({"success": False, "error": "Cannot delete yourself"}, status_code=400)
+    await delete_user(user_id)
     return JSONResponse({"success": True})
 
 @app.get("/uploads/{filename}")
@@ -2286,14 +2015,7 @@ async def get_generated_image(filename: str):
         return FileResponse(file_path)
     return JSONResponse({"error": "Not found"}, status_code=404)
 
+# ---------- Run ----------
 if __name__ == "__main__":
-    print("\n" + "="*50)
-    print("🏠 AI Design System with Full Authentication")
-    print("="*50)
-    print(f"🌐 Server: http://127.0.0.1:8001")
-    print(f"🔐 Admin Login: admin@designsystem.com / admin123")
-    print(f"📝 Register: http://127.0.0.1:8001/register")
-    print(f"🔑 Login: http://127.0.0.1:8001/login")
-    print("="*50 + "\n")
-    
-    uvicorn.run(app, host="127.0.0.1", port=8001)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("app:app", host="0.0.0.0", port=port)
