@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Redirect
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from jose import JWTError, jwt
-from supabase import create_client, Client
+
 
 from dotenv import load_dotenv
 load_dotenv()  # Loads variables from .env file
@@ -24,10 +24,40 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise Exception("Missing SUPABASE_URL or SUPABASE_KEY environment variables")
 
-# For supabase==1.0.3, the client creation is slightly different
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+SUPABASE_HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json"
+}
 
+def supabase_select(table: str, match: dict = None, order: str = None):
+    """Get records from a table"""
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    params = match or {}
+    if order:
+        params["order"] = order
+    response = httpx.get(url, headers=SUPABASE_HEADERS, params=params)
+    return response.json()
 
+def supabase_insert(table: str, data: dict):
+    """Insert a record into a table"""
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    response = httpx.post(url, headers=SUPABASE_HEADERS, json=data)
+    return response.json()
+
+def supabase_update(table: str, match: dict, data: dict):
+    """Update records in a table"""
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    params = match or {}
+    response = httpx.patch(url, headers=SUPABASE_HEADERS, params=params, json=data)
+    return response
+
+def supabase_delete(table: str, match: dict):
+    """Delete records from a table"""
+    url = f"{SUPABASE_URL}/rest/v1/{table}"
+    params = match or {}
+    response = httpx.delete(url, headers=SUPABASE_HEADERS, params=params)
+    return response
 
 # ---------- FastAPI app ----------
 app = FastAPI(title="AI Interior & Exterior Design System")
@@ -64,12 +94,13 @@ def verify_token(token: str):
 
 # ---------- Helper functions for Supabase ----------
 async def get_user_by_email(email: str):
-    res = supabase.table("users").select("*").eq("email", email).execute()
-    return res.data[0] if res.data else None
+    result = supabase_select("users", {"email": f"eq.{email}"})
+    return result[0] if result else None
 
 async def get_user_by_id(user_id: str):
-    res = supabase.table("users").select("*").eq("id", user_id).execute()
-    return res.data[0] if res.data else None
+    result = supabase_select("users", {"id": f"eq.{user_id}"})
+    return result[0] if result else None
+
 
 async def create_user(email: str, username: str, hashed_password: str, full_name: str = ""):
     user_id = str(uuid.uuid4())
@@ -84,33 +115,34 @@ async def create_user(email: str, username: str, hashed_password: str, full_name
         "reset_token": None,
         "reset_token_expiry": None
     }
-    supabase.table("users").insert(data).execute()
+    supabase_insert("users", data)
     return data
 
 async def update_user(user_id: str, updates: dict):
-    supabase.table("users").update(updates).eq("id", user_id).execute()
+    supabase_update("users", {"id": f"eq.{user_id}"}, updates)
 
 async def save_design(design_data: dict):
-    supabase.table("designs").insert(design_data).execute()
+    supabase_insert("designs", design_data)
     return design_data
 
 async def get_user_designs(user_id: str):
-    res = supabase.table("designs").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
-    return res.data
+    result = supabase_select("designs", {"user_id": f"eq.{user_id}"}, order="created_at.desc")
+    return result
 
 async def get_all_designs():
-    res = supabase.table("designs").select("*").order("created_at", desc=True).execute()
-    return res.data
+    result = supabase_select("designs", order="created_at.desc")
+    return result
 
 async def delete_design(design_id: str, user_id: str):
-    supabase.table("designs").delete().eq("id", design_id).eq("user_id", user_id).execute()
+    supabase_delete("designs", {"id": f"eq.{design_id}", "user_id": f"eq.{user_id}"})
 
 async def get_all_users():
-    res = supabase.table("users").select("*").execute()
-    return res.data
+    result = supabase_select("users")
+    return result
+
 
 async def delete_user(user_id: str):
-    supabase.table("users").delete().eq("id", user_id).execute()
+    supabase_delete("users", {"id": f"eq.{user_id}"})
 
 # ---------- AI image generation (unchanged) ----------
 async def generate_ai_image(prompt: str, design_type: str, style: str, color_palette: dict = None, budget: int = None, location: str = None):
@@ -139,7 +171,6 @@ async def generate_ai_image(prompt: str, design_type: str, style: str, color_pal
     except Exception as e:
         print(f"Error: {e}")
     return None
-
 
 # ========== PLACE YOUR HTML STRINGS HERE (exactly as they are in your current app.py) ==========
 # Index Page
@@ -1713,6 +1744,7 @@ async def reset_password_page():
 async def dashboard_page():
     return HTMLResponse(content=DASHBOARD_HTML)
 
+
 @app.get("/interior", response_class=HTMLResponse)
 async def interior_page():
     return HTMLResponse(content=INTERIOR_HTML)
@@ -1775,11 +1807,10 @@ async def forgot_password(email: str = Form(...)):
 
 @app.post("/api/reset-password")
 async def reset_password(token: str = Form(...), new_password: str = Form(...)):
-    # Find user with this token and not expired
-    res = supabase.table("users").select("*").eq("reset_token", token).execute()
-    if not res.data:
+    result = supabase_select("users", {"reset_token": f"eq.{token}"})
+    if not result:
         return JSONResponse({"success": False, "error": "Invalid token"}, status_code=400)
-    user = res.data[0]
+    user = result[0]
     if datetime.fromisoformat(user["reset_token_expiry"]) < datetime.now():
         return JSONResponse({"success": False, "error": "Token expired"}, status_code=400)
     hashed = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
@@ -1924,10 +1955,10 @@ async def update_design(
         return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
     
     # Fetch existing design
-    res = supabase.table("designs").select("*").eq("id", design_id).eq("user_id", payload.get("sub")).execute()
-    if not res.data:
+    result = supabase_select("designs", {"id": f"eq.{design_id}", "user_id": f"eq.{payload.get('sub')}"})
+    if not result:
         return JSONResponse({"success": False, "error": "Design not found"}, status_code=404)
-    design = res.data[0]
+    design = result[0]
     
     color_palette = {"primary": color_primary, "secondary": color_secondary, "accent": color_accent}
     prompt = design.get("prompt", "")
@@ -1946,8 +1977,9 @@ async def update_design(
         "generated_image_url": new_image_url,
         "updated_at": datetime.now().isoformat()
     }
-    supabase.table("designs").update(updates).eq("id", design_id).execute()
+    supabase_update("designs", {"id": f"eq.{design_id}"}, updates)
     return JSONResponse({"success": True, "design_url": new_image_url})
+
 
 @app.get("/api/my-designs")
 async def get_my_designs(authorization: Optional[str] = Header(None)):
