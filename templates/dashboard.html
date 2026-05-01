@@ -1,0 +1,236 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard - AI Design System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav { display: flex; gap: 20px; align-items: center; }
+        .nav a { color: white; text-decoration: none; }
+        .content { padding: 30px; }
+        .filter-bar {
+            margin: 20px 0;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .filter-bar input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 120px;
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn-secondary { background: #6c757d; }
+        .designs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .design-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .design-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .design-info { padding: 15px; }
+        .btn-danger { background: #dc3545; }
+        .admin-link {
+            background: #ffc107;
+            color: #333;
+            padding: 8px 15px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 My Dashboard</h1>
+            <div class="nav">
+                <a href="/interior">New Interior</a>
+                <a href="/exterior">New Exterior</a>
+                <a href="#" id="adminLink" style="display:none" class="admin-link">Admin Panel</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </header>
+        <div class="content">
+            <h2>My Designs</h2>
+            
+            <!-- Budget Filter Bar -->
+            <div class="filter-bar">
+                <label>💰 Budget Range:</label>
+                <input type="number" id="budgetMin" placeholder="Min $" value="">
+                <span>-</span>
+                <input type="number" id="budgetMax" placeholder="Max $" value="">
+                <button id="filterBtn" class="btn">Apply Filter</button>
+                <button id="resetFilterBtn" class="btn btn-secondary">Reset</button>
+            </div>
+            
+            <div id="designsGrid" class="designs-grid">
+                <p>Loading designs...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+        
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.role === 'admin') {
+            document.getElementById('adminLink').style.display = 'inline-block';
+            document.getElementById('adminLink').href = '/admin';
+        }
+        
+        let allDesigns = [];
+        
+        // Helper function to create a design card
+        function createDesignCard(design) {
+            const card = document.createElement('div');
+            card.className = 'design-card';
+            card.innerHTML = `
+                <img src="${design.generated_image_url}" alt="Design">
+                <div class="design-info">
+                    <h3>${design.type} - ${design.style || 'Modern'}</h3>
+                    <p>💰 Budget: $${design.budget || 'N/A'}</p>
+                    <p>📍 Location: ${design.location || 'Any'}</p>
+                    <p>${design.prompt || 'No description'}</p>
+                    <button onclick="editDesign('${design.id}')" class="btn">Edit Colors</button>
+                    <button onclick="deleteDesign('${design.id}')" class="btn btn-danger">Delete</button>
+                </div>
+            `;
+            return card;
+        }
+        
+        // Filter designs by budget
+        function filterDesigns() {
+            const min = parseInt(document.getElementById('budgetMin').value);
+            const max = parseInt(document.getElementById('budgetMax').value);
+            const grid = document.getElementById('designsGrid');
+            
+            let filtered = allDesigns;
+            if (!isNaN(min)) {
+                filtered = filtered.filter(d => (d.budget || 0) >= min);
+            }
+            if (!isNaN(max)) {
+                filtered = filtered.filter(d => (d.budget || 0) <= max);
+            }
+            
+            if (filtered.length > 0) {
+                grid.innerHTML = '';
+                filtered.forEach(design => {
+                    grid.appendChild(createDesignCard(design));
+                });
+            } else {
+                grid.innerHTML = '<p>No designs in this budget range.</p>';
+            }
+        }
+        
+        // Load all designs from API
+        async function loadDesigns() {
+            try {
+                const response = await fetch('/api/my-designs', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                if (response.status === 401) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                const data = await response.json();
+                const grid = document.getElementById('designsGrid');
+                
+                if (data.success && data.designs && data.designs.length > 0) {
+                    allDesigns = data.designs;
+                    grid.innerHTML = '';
+                    allDesigns.forEach(design => {
+                        grid.appendChild(createDesignCard(design));
+                    });
+                } else {
+                    allDesigns = [];
+                    grid.innerHTML = '<p>No designs yet. Create your first design!</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('designsGrid').innerHTML = '<p>Error loading designs. Please refresh.</p>';
+            }
+        }
+        
+        function editDesign(id) {
+            window.location.href = `/design-editor/${id}`;
+        }
+        
+        async function deleteDesign(id) {
+            if (confirm('Delete this design?')) {
+                const response = await fetch(`/api/delete-design/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (response.ok) {
+                    loadDesigns();
+                } else {
+                    alert('Failed to delete design');
+                }
+            }
+        }
+        
+        // Event listeners
+        document.getElementById('filterBtn').addEventListener('click', filterDesigns);
+        document.getElementById('resetFilterBtn').addEventListener('click', () => {
+            document.getElementById('budgetMin').value = '';
+            document.getElementById('budgetMax').value = '';
+            if (allDesigns.length) {
+                const grid = document.getElementById('designsGrid');
+                grid.innerHTML = '';
+                allDesigns.forEach(design => grid.appendChild(createDesignCard(design)));
+            }
+        });
+        
+        loadDesigns();
+    </script>
+</body>
+</html>

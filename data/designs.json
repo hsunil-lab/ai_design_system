@@ -1,0 +1,302 @@
+{
+  "designs": [
+    {
+      "id": "1",
+      "user_id": "1",
+      "type": "interior",
+      "room_type": "bedroom",
+      "style": "modern",
+      "prompt": "warm light with blowing wind and god blessings on wall",
+      "color_palette": {
+        "primary": "#66b1ea",
+        "secondary": "#a14a68",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_interior_20260424_134622_4a91b9f4.jpg",
+      "created_at": "2026-04-24T13:44:51.137897",
+      "original_image_url": "/uploads/upload_20260424_134451_empty room.jpg",
+      "updated_at": "2026-04-24T13:46:22.866588"
+    },
+    {
+      "id": "2",
+      "user_id": "2",
+      "type": "interior",
+      "room_type": "living room",
+      "style": "minimalist",
+      "prompt": "add bright light",
+      "budget": 5000,
+      "color_palette": {
+        "primary": "#667eea",
+        "secondary": "#4aa184",
+        "accent": "#b98d8d"
+      },
+      "generated_image_url": "/generated/ai_interior_20260425_103216_8cf200d0.jpg",
+      "created_at": "2026-04-25T10:30:46.730442",
+      "original_image_url": "/uploads/upload_20260425_103046_empty room.jpg",
+      "updated_at": "2026-04-25T10:32:16.307114"
+    },
+    {
+      "id": "3",
+      "user_id": "2",
+      "type": "exterior",
+      "building_type": "house",
+      "style": "modern",
+      "prompt": "add bright light",
+      "budget": 5000,
+      "color_palette": {
+        "primary": "#667eea",
+        "secondary": "#764ba2",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_exterior_20260425_104554_7be6eaad.jpg",
+      "created_at": "2026-04-25T10:45:54.155091"
+    },
+    {
+      "id": "4",
+      "user_id": "2",
+      "type": "interior",
+      "room_type": "kitchen",
+      "style": "modern",
+      "prompt": "bright lights and add 2-3 green plants",
+      "budget": 12000,
+      "location": "Modern City",
+      "color_palette": {
+        "primary": "#e2baee",
+        "secondary": "#b58ddd",
+        "accent": "#b14bbe"
+      },
+      "generated_image_url": "/generated/ai_interior_20260427_122741_e2e9c349.jpg",
+      "created_at": "2026-04-27T12:27:41.530127",
+      "original_image_url": "/uploads/upload_20260427_122741_empty room.jpg"
+    },
+    {
+      "id": "6",
+      "user_id": "2",
+      "type": "interior",
+      "room_type": "bathroom",
+      "style": "industrial",
+      "prompt": "use warm lights",
+      "budget": 1000,
+      "location": "Bengaluru",
+      "color_palette": {
+        "primary": "#667eea",
+        "secondary": "#4a87a1",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_interior_20260427_135154_a2761211.jpg",
+      "created_at": "2026-04-27T13:47:38.816255",
+      "updated_at": "2026-04-27T13:51:54.088682"
+    },
+    {
+      "id": "8",
+      "user_id": "2",
+      "type": "exterior",
+      "building_type": "house",
+      "style": "modern",
+      "prompt": "add bright lights",
+      "budget": 5000,
+      "location": "",
+      "color_palette": {
+        "primary": "#667eea",
+        "secondary": "#764ba2",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_exterior_20260427_150146_c85ac796.jpg",
+      "created_at": "2026-04-27T15:01:46.082590"
+    },
+    {
+      "id": "7",
+      "user_id": "2",
+      "type": "interior",
+      "room_type": "living room",
+      "style": "modern",
+      "prompt": "wooden floor bright lights add sunlight",
+      "budget": 5000,
+      "location": "Modern City",
+      "color_palette": {
+        "primary": "#667eea",
+        "secondary": "#764ba2",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_interior_20260427_152756_9bd806a0.jpg",
+      "created_at": "2026-04-27T15:27:56.020778"
+    },
+    {
+      "id": "8",
+      "user_id": "2",
+      "type": "exterior",
+      "building_type": "house",
+      "style": "modern",
+      "prompt": "add garden and small temple with buddha and sunlight on budda",
+      "budget": 5000,
+      "location": "",
+      "color_palette": {
+        "primary": "#667eea",
+        "secondary": "#764ba2",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_exterior_20260427_153016_9c9f96f9.jpg",
+      "created_at": "2026-04-27T15:30:16.742963"
+    },
+    {
+      "id": "9",
+      "user_id": "2",
+      "type": "interior",
+      "room_type": "bedroom",
+      "style": "scandinavian",
+      "prompt": "bright light with sunlight",
+      "budget": 5000,
+      "location": "Modern City",
+      "color_palette": {
+        "primary": "#667eea",
+        "secondary": "#764ba2",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_interior_20260427_210122_bc640eed.jpg",
+      "created_at": "2026-04-27T21:01:22.524108",
+      "original_image_url": "/uploads/upload_20260427_210122_empty room.jpg"
+    },
+    {
+      "id": "10",
+      "user_id": "2",
+      "type": "interior",
+      "room_type": "bathroom",
+      "style": "modern",
+      "prompt": "make this simple and elegant and clean and with bright light with a window",
+      "budget": -1000,
+      "location": "small town",
+      "color_palette": {
+        "primary": "#667eea",
+        "secondary": "#764ba2",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_interior_20260428_203053_82ace0ba.jpg",
+      "created_at": "2026-04-28T20:30:53.709273",
+      "original_image_url": "/uploads/upload_20260428_203053_empty room.jpg"
+    },
+    {
+      "id": "14",
+      "user_id": "2",
+      "type": "exterior",
+      "building_type": "house",
+      "style": "neoclassical",
+      "prompt": "make it simple and elegant and with bright light",
+      "budget": 5000,
+      "location": "",
+      "color_palette": {
+        "primary": "#f5c2ff",
+        "secondary": "#dd78cb",
+        "accent": "#f58ef2"
+      },
+      "generated_image_url": "/generated/ai_exterior_20260428_205104_aab10025.jpg",
+      "created_at": "2026-04-28T20:35:00.275003",
+      "updated_at": "2026-04-28T20:51:04.697276"
+    },
+    {
+      "id": "12",
+      "user_id": "2",
+      "type": "interior",
+      "room_type": "kitchen",
+      "style": "modern",
+      "prompt": "bright  light",
+      "budget": 5000,
+      "location": "Bengaluru",
+      "color_palette": {
+        "primary": "#667eea",
+        "secondary": "#764ba2",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_interior_20260429_111328_3ab8b57c.jpg",
+      "created_at": "2026-04-29T11:13:28.821793",
+      "original_image_url": "/uploads/upload_20260429_111328_empty room.jpg"
+    },
+    {
+      "id": "13",
+      "user_id": "2",
+      "type": "interior",
+      "room_type": "kitchen",
+      "style": "modern",
+      "prompt": "give another design\r\n",
+      "budget": 5000,
+      "location": "Bengaluru",
+      "color_palette": {
+        "primary": "#667eea",
+        "secondary": "#764ba2",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_interior_20260429_111458_9803cc24.jpg",
+      "created_at": "2026-04-29T11:14:58.392126"
+    },
+    {
+      "id": "14",
+      "user_id": "2",
+      "type": "interior",
+      "room_type": "living room",
+      "style": "modern",
+      "prompt": "add bright lights",
+      "budget": 5000,
+      "location": "Modern City",
+      "color_palette": {
+        "primary": "#667eea",
+        "secondary": "#764ba2",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_interior_20260429_112726_6d44a8fc.jpg",
+      "created_at": "2026-04-29T11:27:26.825511",
+      "original_image_url": "/uploads/upload_20260429_112726_empty room.jpg"
+    },
+    {
+      "id": "15",
+      "user_id": "2",
+      "type": "interior",
+      "room_type": "bathroom",
+      "style": "modern",
+      "prompt": "add bright lights",
+      "budget": 5000,
+      "location": "Modern City",
+      "color_palette": {
+        "primary": "#667eea",
+        "secondary": "#764ba2",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_interior_20260429_114139_405f14a9.jpg",
+      "created_at": "2026-04-29T11:41:39.411882",
+      "original_image_url": "/uploads/upload_20260429_114139_empty room.jpg"
+    },
+    {
+      "id": "16",
+      "user_id": "2",
+      "type": "exterior",
+      "building_type": "apartment",
+      "style": "contemporary",
+      "prompt": "add sunlight ",
+      "budget": 5000,
+      "location": "",
+      "color_palette": {
+        "primary": "#667eea",
+        "secondary": "#764ba2",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_exterior_20260501_110603_180d3ac5.jpg",
+      "created_at": "2026-05-01T11:06:03.835611"
+    },
+    {
+      "id": "17",
+      "user_id": "2",
+      "type": "interior",
+      "room_type": "kitchen",
+      "style": "scandinavian",
+      "prompt": "simple and elegant add warm lights",
+      "budget": 5000,
+      "location": "Modern City",
+      "color_palette": {
+        "primary": "#b1bced",
+        "secondary": "#cca5f3",
+        "accent": "#d0e17a"
+      },
+      "generated_image_url": "/generated/ai_interior_20260501_111109_58a31c32.jpg",
+      "created_at": "2026-05-01T11:11:09.799741",
+      "original_image_url": "/uploads/upload_20260501_111109_empty room.jpg"
+    }
+  ]
+}

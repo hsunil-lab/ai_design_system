@@ -1,0 +1,181 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Design - AI Design System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+        }
+        h1 { margin-bottom: 20px; color: #333; }
+        .editor-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        .design-preview img { width: 100%; border-radius: 10px; }
+        .color-controls { padding: 20px; background: #f8f9fa; border-radius: 10px; }
+        .color-group { margin-bottom: 20px; }
+        .color-group label { display: block; margin-bottom: 10px; font-weight: bold; }
+        .color-group input[type="color"] { 
+            width: 100%; 
+            height: 50px; 
+            cursor: pointer; 
+            border: 2px solid #ddd; 
+            border-radius: 8px;
+            background: white;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            font-size: 16px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #667eea; text-decoration: none; }
+        .error-msg { color: red; margin-top: 10px; text-align: center; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+        <h1>🎨 Edit Design Colors</h1>
+        
+        <div class="editor-grid">
+            <div class="design-preview">
+                <h3>Current Design</h3>
+                <img id="designImage" alt="Design">
+            </div>
+            
+            <div class="color-controls">
+                <h3>Color Palette Editor</h3>
+                <div class="color-group">
+                    <label>🎨 Primary Color</label>
+                    <input type="color" id="primaryColor" value="#667eea">
+                </div>
+                <div class="color-group">
+                    <label>🎨 Secondary Color</label>
+                    <input type="color" id="secondaryColor" value="#764ba2">
+                </div>
+                <div class="color-group">
+                    <label>🎨 Accent Color</label>
+                    <input type="color" id="accentColor" value="#f5f5f5">
+                </div>
+                <button id="applyBtn">Apply New Colors & Regenerate</button>
+                <div class="error-msg" id="errorMsg"></div>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Regenerating design with new colors...</p>
+        </div>
+    </div>
+    
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+        
+        const designId = window.location.pathname.split('/').pop();
+        
+        async function loadDesign() {
+            try {
+                const response = await fetch('/api/my-designs', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await response.json();
+                if (data.success) {
+                    const design = data.designs.find(d => d.id === designId);
+                    if (design) {
+                        document.getElementById('designImage').src = design.generated_image_url;
+                        if (design.color_palette) {
+                            document.getElementById('primaryColor').value = design.color_palette.primary || '#667eea';
+                            document.getElementById('secondaryColor').value = design.color_palette.secondary || '#764ba2';
+                            document.getElementById('accentColor').value = design.color_palette.accent || '#f5f5f5';
+                        }
+                    } else {
+                        alert('Design not found');
+                        window.location.href = '/dashboard';
+                    }
+                } else {
+                    alert('Failed to load design');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error loading design');
+            }
+        }
+        
+        async function applyNewColors() {
+            const loading = document.getElementById('loading');
+            const errorMsg = document.getElementById('errorMsg');
+            loading.style.display = 'block';
+            errorMsg.style.display = 'none';
+            
+            const formData = new FormData();
+            formData.append('color_primary', document.getElementById('primaryColor').value);
+            formData.append('color_secondary', document.getElementById('secondaryColor').value);
+            formData.append('color_accent', document.getElementById('accentColor').value);
+            
+            try {
+                const response = await fetch(`/api/update-design/${designId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('designImage').src = data.design_url + '?t=' + Date.now();
+                    alert('Design updated with new colors!');
+                } else {
+                    errorMsg.style.display = 'block';
+                    errorMsg.textContent = data.error || 'Update failed';
+                }
+            } catch (error) {
+                errorMsg.style.display = 'block';
+                errorMsg.textContent = 'Network error: ' + error.message;
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+        
+        document.getElementById('applyBtn').addEventListener('click', applyNewColors);
+        loadDesign();
+    </script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register - AI Design System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            width: 400px;
+        }
+        h1 { margin-bottom: 30px; color: #333; text-align: center; }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .links { text-align: center; margin-top: 20px; }
+        .links a { color: #667eea; text-decoration: none; }
+        .error { color: red; margin-top: 10px; text-align: center; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Register</h1>
+        <form id="registerForm">
+            <input type="email" id="email" name="email" placeholder="Email" required>
+            <input type="text" id="username" name="username" placeholder="Username" required>
+            <input type="text" id="full_name" name="full_name" placeholder="Full Name">
+            <input type="password" id="password" name="password" placeholder="Password" required>
+            <div class="error" id="errorMsg"></div>
+            <button type="submit">Register</button>
+        </form>
+        <div class="links">
+            <a href="/login">Already have an account? Login</a>
+        </div>
+    </div>
+    <script>
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const username = document.getElementById('username').value;
+            const full_name = document.getElementById('full_name').value;
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.style.display = 'none';
+            try {
+                const formData = new FormData();
+                formData.append('email', email);
+                formData.append('username', username);
+                formData.append('full_name', full_name);
+                formData.append('password', password);
+                const response = await fetch('/api/register', { method: 'POST', body: formData });
+                const data = await response.json();
+                if (data.success) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    window.location.href = '/dashboard';
+                } else {
+                    errorMsg.style.display = 'block';
+                    errorMsg.textContent = data.error || 'Registration failed';
+                }
+            } catch (error) {
+                errorMsg.style.display = 'block';
+                errorMsg.textContent = 'Error: ' + error.message;
+            }
+        });
+    </script>
+</body>
+</html>

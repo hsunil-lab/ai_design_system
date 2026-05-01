@@ -1,0 +1,78 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>AI Design System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        header h1 { font-size: 2em; margin-bottom: 10px; }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            padding: 40px;
+        }
+        .card {
+            text-align: center;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            transition: transform 0.3s;
+        }
+        .card:hover { transform: translateY(-5px); }
+        .card-icon { font-size: 4em; margin-bottom: 20px; }
+        .card h2 { margin-bottom: 15px; color: #333; }
+        .card p { color: #666; margin-bottom: 20px; }
+        .btn {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 AI Interior & Exterior Design System</h1>
+            <p>Transform your spaces with artificial intelligence</p>
+        </header>
+        <div class="cards">
+            <div class="card">
+                <div class="card-icon">🏠</div>
+                <h2>Interior Design</h2>
+                <p>Design beautiful interiors for any room</p>
+                <a href="/interior" class="btn">Start Designing →</a>
+            </div>
+            <div class="card">
+                <div class="card-icon">🏢</div>
+                <h2>Exterior Design</h2>
+                <p>Create stunning building exteriors</p>
+                <a href="/exterior" class="btn">Start Designing →</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

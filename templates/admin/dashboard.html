@@ -1,0 +1,223 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Panel - AI Design System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 20px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f8f9fa;
+        }
+        .btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .tab {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab button {
+            padding: 10px 20px;
+            background: #f8f9fa;
+            border: none;
+            cursor: pointer;
+        }
+        .tab button.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Admin Panel</h1>
+            <div class="nav">
+                <a href="/dashboard">Dashboard</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </header>
+        <div class="content">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="userCount">0</div>
+                    <div>Total Users</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="designCount">0</div>
+                    <div>Total Designs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="todayCount">0</div>
+                    <div>Today's Designs</div>
+                </div>
+            </div>
+
+            <div class="tab">
+                <button class="active" onclick="showTab('users')">Users</button>
+                <button onclick="showTab('designs')">All Designs</button>
+            </div>
+
+            <div id="usersTab" class="tab-content active">
+                <table id="usersTable">
+                    <thead>
+                        <tr><th>ID</th><th>Email</th><th>Username</th><th>Role</th><th>Created</th><th>Action</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div id="designsTab" class="tab-content">
+                <table id="designsTable">
+                    <thead>
+                        <tr><th>ID</th><th>User ID</th><th>Type</th><th>Style</th><th>Budget</th><th>Location</th><th>Created</th><th>Preview</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) window.location.href = '/login';
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab + 'Tab').classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        async function loadAdminData() {
+            // Load users
+            const usersRes = await fetch('/api/admin/users', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const usersData = await usersRes.json();
+            if (usersData.success) {
+                document.getElementById('userCount').innerText = usersData.users.length;
+                const tbody = document.querySelector('#usersTable tbody');
+                tbody.innerHTML = '';
+                usersData.users.forEach(user => {
+                    const row = tbody.insertRow();
+                    row.insertCell(0).innerText = user.id;
+                    row.insertCell(1).innerText = user.email;
+                    row.insertCell(2).innerText = user.username;
+                    row.insertCell(3).innerText = user.role;
+                    row.insertCell(4).innerText = new Date(user.created_at).toLocaleDateString();
+                    row.insertCell(5).innerHTML = user.role !== 'admin' ? `<button class="btn" onclick="deleteUser('${user.id}')">Delete</button>` : '-';
+                });
+            }
+
+            // Load designs
+            const designsRes = await fetch('/api/admin/designs', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const designsData = await designsRes.json();
+            if (designsData.success) {
+                document.getElementById('designCount').innerText = designsData.designs.length;
+                const today = new Date().toDateString();
+                const todayDesigns = designsData.designs.filter(d => new Date(d.created_at).toDateString() === today);
+                document.getElementById('todayCount').innerText = todayDesigns.length;
+
+                const tbody = document.querySelector('#designsTable tbody');
+                tbody.innerHTML = '';
+                designsData.designs.forEach(design => {
+                    const row = tbody.insertRow();
+                    row.insertCell(0).innerText = design.id;
+                    row.insertCell(1).innerText = design.user_id;
+                    row.insertCell(2).innerText = design.type;
+                    row.insertCell(3).innerText = design.style;
+                    row.insertCell(4).innerText = design.budget || 'N/A';
+                    row.insertCell(5).innerText = design.location || 'Any';
+                    row.insertCell(6).innerText = new Date(design.created_at).toLocaleDateString();
+                    row.insertCell(7).innerHTML = `<a href="${design.generated_image_url}" target="_blank">View</a>`;
+                });
+            }
+        }
+
+        async function deleteUser(userId) {
+            if (confirm('Delete this user? All their designs will also be deleted.')) {
+                const response = await fetch(`/api/admin/delete-user/${userId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (response.ok) {
+                    loadAdminData();
+                } else {
+                    alert('Failed to delete user');
+                }
+            }
+        }
+
+        loadAdminData();
+    </script>
+</body>
+</html>
