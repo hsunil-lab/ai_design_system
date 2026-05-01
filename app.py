@@ -15,6 +15,9 @@ from fastapi.templating import Jinja2Templates
 from jose import JWTError, jwt
 from supabase import create_client, Client
 
+from dotenv import load_dotenv
+load_dotenv()  # Loads variables from .env file
+
 # ---------- Supabase client ----------
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -2021,5 +2024,4 @@ async def get_generated_image(filename: str):
 
 # ---------- Run ----------
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
-    uvicorn.run("app:app", host="0.0.0.0", port=port)
+    uvicorn.run("app:app", host="127.0.0.1", port=8001)
