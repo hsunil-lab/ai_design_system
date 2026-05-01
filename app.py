@@ -1946,7 +1946,7 @@ async def update_design(
 async def get_my_designs(authorization: Optional[str] = Header(None)):
     token = None
     if authorization and authorization.startswith("Bearer "):
-        token = authorization.replace("Bearer ", ")
+        token = authorization.replace("Bearer ", "")
     payload = verify_token(token) if token else None
     if not payload:
         return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
