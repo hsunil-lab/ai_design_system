@@ -800,6 +800,7 @@ INTERIOR_HTML = '''
 <html>
 <head>
     <title>Interior Design - AI Design System</title>
+    <meta charset="UTF-8">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -809,31 +810,30 @@ INTERIOR_HTML = '''
             padding: 20px;
         }
         .container {
-            max-width: 900px;
+            max-width: 700px;
             margin: 0 auto;
             background: white;
             border-radius: 20px;
             padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-        h1 { margin-bottom: 10px; color: #333; }
+        h1 { margin-bottom: 20px; color: #333; text-align: center; }
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; }
-        select, textarea, input[type="file"] {
+        select, input, textarea {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             border: 2px solid #ddd;
             border-radius: 8px;
             font-size: 16px;
         }
         .color-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            display: flex;
             gap: 15px;
+            margin-top: 10px;
         }
-        .color-input { display: flex; align-items: center; gap: 10px; }
-        .color-input input[type="color"] { width: 60px; height: 40px; cursor: pointer; }
-        .image-preview { margin-top: 10px; text-align: center; }
-        .image-preview img { max-width: 100%; max-height: 300px; border-radius: 10px; }
+        .color-input { flex: 1; text-align: center; }
+        .color-input input { width: 60px; height: 40px; cursor: pointer; margin: 0 auto; }
         button {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -844,43 +844,23 @@ INTERIOR_HTML = '''
             width: 100%;
             font-size: 16px;
             font-weight: bold;
+            margin-top: 20px;
         }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            display: none;
-        }
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .result { margin-top: 30px; display: none; }
-        .result img { max-width: 100%; border-radius: 10px; }
+        button:hover { opacity: 0.9; }
+        .loading { text-align: center; padding: 20px; display: none; color: #667eea; font-weight: bold; }
+        .result { margin-top: 30px; text-align: center; display: none; }
+        .result img { max-width: 100%; border-radius: 10px; margin-top: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
         .back-link { display: inline-block; margin-bottom: 20px; color: #667eea; text-decoration: none; }
+        .success { color: green; margin-top: 10px; }
+        .error { color: red; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
         <a href="/dashboard" class="back-link">← Back to Dashboard</a>
         <h1>🏠 AI Interior Design Generator</h1>
-        <p>Upload your room or describe your dream interior</p>
         
-        <form id="designForm" enctype="multipart/form-data">
-            <div class="form-group">
-                <label>Upload Your Room Photo (Optional)</label>
-                <input type="file" name="image" accept="image/*" id="imageInput">
-                <div class="image-preview" id="imagePreview"></div>
-            </div>
-            
+        <form id="designForm">
             <div class="form-group">
                 <label>Room Type</label>
                 <select name="room_type" required>
@@ -902,109 +882,112 @@ INTERIOR_HTML = '''
                     <option value="bohemian">Bohemian</option>
                 </select>
             </div>
-
-            <div class="form-group">
-                <label>📍 Location</label>
-                <input type="text" name="location" placeholder="City or style" value="Modern City">
-            </div>
-
+            
             <div class="form-group">
                 <label>💰 Budget (USD)</label>
-                <input type="number" name="budget" placeholder="e.g., 5000" step="1000" value="5000">
+                <input type="number" name="budget" value="5000" step="1000">
+                <small>AI will design within your budget</small>
             </div>
-
+            
             <div class="form-group">
-                <label>Color Palette (Optional)</label>
+                <label>📍 Location</label>
+                <input type="text" name="location" placeholder="e.g., New York, Beach, Mountains" value="Modern City">
+                <small>AI adapts design to this location</small>
+            </div>
+            
+            <div class="form-group">
+                <label>🎨 Color Palette (Optional)</label>
                 <div class="color-row">
                     <div class="color-input">
                         <input type="color" name="color_primary" value="#667eea">
-                        <span>Primary</span>
+                        <div>Primary</div>
                     </div>
                     <div class="color-input">
                         <input type="color" name="color_secondary" value="#764ba2">
-                        <span>Secondary</span>
+                        <div>Secondary</div>
                     </div>
                     <div class="color-input">
                         <input type="color" name="color_accent" value="#f5f5f5">
-                        <span>Accent</span>
+                        <div>Accent</div>
                     </div>
                 </div>
             </div>
             
             <div class="form-group">
-                <label>Describe Your Dream Design</label>
-                <textarea name="prompt" rows="3" placeholder="Example: Add large windows, wooden floors, and warm lighting..."></textarea>
+                <label>📝 Describe Your Dream Design</label>
+                <textarea name="prompt" rows="4" placeholder="Example: Add large windows, wooden floors, green plants, and warm lighting..."></textarea>
             </div>
             
-            <button type="submit">✨ Generate Design</button>
+            <button type="submit">🎨 Generate Design</button>
         </form>
         
         <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>AI is creating your design...</p>
+            ⏳ AI is creating your design... (10-20 seconds)
         </div>
         
         <div class="result" id="result">
-            <h3>✨ Your Generated Design</h3>
+            <h3>✨ Your AI-Generated Design</h3>
             <img id="resultImage" alt="Generated design">
-            <button onclick="saveAndContinue()">Save to Dashboard</button>
+            <p class="success" id="successMsg"></p>
+            <p class="error" id="errorMsg"></p>
+            <button onclick="saveAndContinue()" style="margin-top: 15px;">💾 Save & Go to Dashboard</button>
         </div>
     </div>
     
     <script>
+        // Get token from localStorage
         const token = localStorage.getItem('token');
-        if (!token) { window.location.href = '/login'; }
-        
-        document.getElementById('imageInput').addEventListener('change', function(e) {
-            const preview = document.getElementById('imagePreview');
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    preview.innerHTML = `<img src="${event.target.result}" alt="Preview">`;
-                }
-                reader.readAsDataURL(file);
-            }
-        });
+        if (!token) {
+            alert('Please login first');
+            window.location.href = '/login';
+        }
         
         const form = document.getElementById('designForm');
         const loading = document.getElementById('loading');
-        const result = document.getElementById('result');
+        const resultDiv = document.getElementById('result');
         const resultImage = document.getElementById('resultImage');
+        const errorMsg = document.getElementById('errorMsg');
+        const successMsg = document.getElementById('successMsg');
         
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const formData = new FormData(form);
+            
+            // Show loading, hide result
             loading.style.display = 'block';
-            result.style.display = 'none';
+            resultDiv.style.display = 'none';
+            errorMsg.textContent = '';
+            successMsg.textContent = '';
+            
+            const formData = new FormData(form);
             
             try {
-                const token = localStorage.getItem('token');
-                if (!token) {
-                    window.location.href = '/login';
-                    return;
-                }
-
                 const response = await fetch('/api/generate-interior', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + token },
                     body: formData
                 });
+                
                 const data = await response.json();
+                
                 if (data.success) {
                     resultImage.src = data.design_url;
-                    result.style.display = 'block';
+                    successMsg.textContent = '✅ Design generated successfully!';
+                    resultDiv.style.display = 'block';
                 } else {
-                    alert('Error: ' + data.error);
+                    errorMsg.textContent = '❌ Error: ' + data.error;
+                    resultDiv.style.display = 'block';
                 }
-            } catch (error) {
-                alert('Error: ' + error.message);
+            } catch (err) {
+                errorMsg.textContent = '❌ Network Error: ' + err.message;
+                resultDiv.style.display = 'block';
             } finally {
                 loading.style.display = 'none';
             }
         });
         
-        function saveAndContinue() { window.location.href = '/dashboard'; }
+        function saveAndContinue() {
+            window.location.href = '/dashboard';
+        }
     </script>
 </body>
 </html>
@@ -1015,6 +998,7 @@ EXTERIOR_HTML = '''
 <html>
 <head>
     <title>Exterior Design - AI Design System</title>
+    <meta charset="UTF-8">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -1024,31 +1008,30 @@ EXTERIOR_HTML = '''
             padding: 20px;
         }
         .container {
-            max-width: 900px;
+            max-width: 700px;
             margin: 0 auto;
             background: white;
             border-radius: 20px;
             padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-        h1 { margin-bottom: 10px; color: #333; }
+        h1 { margin-bottom: 20px; color: #333; text-align: center; }
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; }
-        select, textarea, input[type="file"] {
+        select, input, textarea {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             border: 2px solid #ddd;
             border-radius: 8px;
             font-size: 16px;
         }
         .color-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            display: flex;
             gap: 15px;
+            margin-top: 10px;
         }
-        .color-input { display: flex; align-items: center; gap: 10px; }
-        .color-input input[type="color"] { width: 60px; height: 40px; cursor: pointer; }
-        .image-preview { margin-top: 10px; text-align: center; }
-        .image-preview img { max-width: 100%; max-height: 300px; border-radius: 10px; }
+        .color-input { flex: 1; text-align: center; }
+        .color-input input { width: 60px; height: 40px; cursor: pointer; margin: 0 auto; }
         button {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -1058,173 +1041,151 @@ EXTERIOR_HTML = '''
             cursor: pointer;
             width: 100%;
             font-size: 16px;
+            font-weight: bold;
+            margin-top: 20px;
         }
-        .loading {
-            text-align: center;
-            padding: 40px;
-            display: none;
-        }
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .result { margin-top: 30px; display: none; }
-        .result img { max-width: 100%; border-radius: 10px; }
+        button:hover { opacity: 0.9; }
+        .loading { text-align: center; padding: 20px; display: none; color: #667eea; font-weight: bold; }
+        .result { margin-top: 30px; text-align: center; display: none; }
+        .result img { max-width: 100%; border-radius: 10px; margin-top: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
         .back-link { display: inline-block; margin-bottom: 20px; color: #667eea; text-decoration: none; }
+        .success { color: green; margin-top: 10px; }
+        .error { color: red; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
         <a href="/dashboard" class="back-link">← Back to Dashboard</a>
-        <h1>🏢 AI Exterior Design Generator</h1>
-        <p>Upload your house or describe your dream exterior</p>
+        <h1>🏠 AI Exterior Design Generator</h1>
         
-        <form id="designForm" enctype="multipart/form-data">
+        <form id="designForm">
             <div class="form-group">
-                <label>Upload Your House Photo (Optional)</label>
-                <input type="file" name="image" accept="image/*" id="imageInput">
-                <div class="image-preview" id="imagePreview"></div>
-            </div>
-            
-            <div class="form-group">
-                <label>Building Type</label>
-                <select name="building_type" required>
-                    <option value="house">Residential House</option>
-                    <option value="villa">Modern Villa</option>
-                    <option value="apartment">Apartment Building</option>
-                    <option value="commercial">Commercial Building</option>
+                <label>Room Type</label>
+                <select name="room_type" required>
+                    <option value="living room">Living Room</option>
+                    <option value="bedroom">Bedroom</option>
+                    <option value="kitchen">Kitchen</option>
+                    <option value="bathroom">Bathroom</option>
+                    <option value="office">Home Office</option>
                 </select>
             </div>
             
             <div class="form-group">
-                <label>Architectural Style</label>
+                <label>Design Style</label>
                 <select name="style" required>
                     <option value="modern">Modern</option>
-                    <option value="contemporary">Contemporary</option>
                     <option value="minimalist">Minimalist</option>
-                    <option value="neoclassical">Neoclassical</option>
+                    <option value="industrial">Industrial</option>
+                    <option value="scandinavian">Scandinavian</option>
+                    <option value="bohemian">Bohemian</option>
                 </select>
             </div>
-
+            
             <div class="form-group">
                 <label>💰 Budget (USD)</label>
                 <input type="number" name="budget" value="5000" step="1000">
+                <small>AI will design within your budget</small>
             </div>
-
+            
             <div class="form-group">
                 <label>📍 Location</label>
-                <input type="text" name="location" placeholder="e.g., Beach, Urban, Mountains">
+                <input type="text" name="location" placeholder="e.g., New York, Beach, Mountains" value="Modern City">
+                <small>AI adapts design to this location</small>
             </div>
-
+            
             <div class="form-group">
-                <label>Color Palette (Optional)</label>
+                <label>🎨 Color Palette (Optional)</label>
                 <div class="color-row">
                     <div class="color-input">
                         <input type="color" name="color_primary" value="#667eea">
-                        <span>Primary</span>
+                        <div>Primary</div>
                     </div>
                     <div class="color-input">
                         <input type="color" name="color_secondary" value="#764ba2">
-                        <span>Secondary</span>
+                        <div>Secondary</div>
                     </div>
                     <div class="color-input">
                         <input type="color" name="color_accent" value="#f5f5f5">
-                        <span>Accent</span>
+                        <div>Accent</div>
                     </div>
                 </div>
             </div>
             
             <div class="form-group">
-                <label>Describe Your Dream Building</label>
-                <textarea name="prompt" rows="3" placeholder="Example: Add a garden, swimming pool, large windows..."></textarea>
+                <label>📝 Describe Your Dream Design</label>
+                <textarea name="prompt" rows="4" placeholder="Example: Add large windows, wooden floors, green plants, and warm lighting..."></textarea>
             </div>
             
-            <button type="submit">🏗️ Generate Design</button>
+            <button type="submit">🎨 Generate Design</button>
         </form>
         
         <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>AI is creating your design...</p>
+            ⏳ AI is creating your design... (10-20 seconds)
         </div>
         
         <div class="result" id="result">
-            <h3>✨ Your Generated Design</h3>
+            <h3>✨ Your AI-Generated Design</h3>
             <img id="resultImage" alt="Generated design">
-            <button onclick="saveAndContinue()">Save to Dashboard</button>
+            <p class="success" id="successMsg"></p>
+            <p class="error" id="errorMsg"></p>
+            <button onclick="saveAndContinue()" style="margin-top: 15px;">💾 Save & Go to Dashboard</button>
         </div>
     </div>
     
     <script>
+        // Get token from localStorage
         const token = localStorage.getItem('token');
-        if (!token) { window.location.href = '/login'; }
-
-        document.getElementById('imageInput')?.addEventListener('change', function(e) {
-            const preview = document.getElementById('imagePreview');
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    preview.innerHTML = `<img src="${event.target.result}" style="max-width: 100%;">`;
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-
+        if (!token) {
+            alert('Please login first');
+            window.location.href = '/login';
+        }
+        
         const form = document.getElementById('designForm');
         const loading = document.getElementById('loading');
-        const result = document.getElementById('result');
+        const resultDiv = document.getElementById('result');
         const resultImage = document.getElementById('resultImage');
-
+        const errorMsg = document.getElementById('errorMsg');
+        const successMsg = document.getElementById('successMsg');
+        
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-
-            const token = localStorage.getItem('token');
-            if (!token) {
-                window.location.href = '/login';
-                return;
-            }
-
-            const formData = new FormData(form);
+            
+            // Show loading, hide result
             loading.style.display = 'block';
-            result.style.display = 'none';
-
+            resultDiv.style.display = 'none';
+            errorMsg.textContent = '';
+            successMsg.textContent = '';
+            
+            const formData = new FormData(form);
+            
             try {
-                const response = await fetch('/api/generate-exterior', {
+                const response = await fetch('/api/generate-interior', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + token },
                     body: formData
                 });
-
-                if (response.status === 401) {
-                    localStorage.removeItem('token');
-                    window.location.href = '/login';
-                    return;
-                }
-
+                
                 const data = await response.json();
+                
                 if (data.success) {
                     resultImage.src = data.design_url;
-                    result.style.display = 'block';
+                    successMsg.textContent = '✅ Design generated successfully!';
+                    resultDiv.style.display = 'block';
                 } else {
-                    alert('Error: ' + data.error);
+                    errorMsg.textContent = '❌ Error: ' + data.error;
+                    resultDiv.style.display = 'block';
                 }
-            } catch (error) {
-                alert('Error: ' + error.message);
+            } catch (err) {
+                errorMsg.textContent = '❌ Network Error: ' + err.message;
+                resultDiv.style.display = 'block';
             } finally {
                 loading.style.display = 'none';
             }
         });
-
-        function saveAndContinue() { window.location.href = '/dashboard'; }
+        
+        function saveAndContinue() {
+            window.location.href = '/dashboard';
+        }
     </script>
 </body>
 </html>
