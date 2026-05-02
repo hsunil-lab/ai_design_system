@@ -799,195 +799,91 @@ INTERIOR_HTML = '''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Interior Design - AI Design System</title>
-    <meta charset="UTF-8">
+    <title>Interior Design</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container {
-            max-width: 700px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        h1 { margin-bottom: 20px; color: #333; text-align: center; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; }
-        select, input, textarea {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-        }
-        .color-row {
-            display: flex;
-            gap: 15px;
-            margin-top: 10px;
-        }
-        .color-input { flex: 1; text-align: center; }
-        .color-input input { width: 60px; height: 40px; cursor: pointer; margin: 0 auto; }
-        button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 14px;
-            border-radius: 8px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 16px;
-            font-weight: bold;
-            margin-top: 20px;
-        }
-        button:hover { opacity: 0.9; }
-        .loading { text-align: center; padding: 20px; display: none; color: #667eea; font-weight: bold; }
-        .result { margin-top: 30px; text-align: center; display: none; }
-        .result img { max-width: 100%; border-radius: 10px; margin-top: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
-        .back-link { display: inline-block; margin-bottom: 20px; color: #667eea; text-decoration: none; }
-        .success { color: green; margin-top: 10px; }
-        .error { color: red; margin-top: 10px; }
+        body { font-family: Arial; background: linear-gradient(135deg, #667eea, #764ba2); padding: 20px; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 20px; }
+        input, select, textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        button { background: #667eea; color: white; padding: 12px; border: none; border-radius: 5px; cursor: pointer; width: 100%; }
+        img { max-width: 100%; margin-top: 20px; border-radius: 10px; }
+        .loading { color: #667eea; text-align: center; display: none; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
     <div class="container">
-        <a href="/dashboard" class="back-link">← Back to Dashboard</a>
-        <h1>🏠 AI Interior Design Generator</h1>
+        <h1>Interior Design</h1>
+        <a href="/dashboard">← Dashboard</a>
         
         <form id="designForm">
-            <div class="form-group">
-                <label>Room Type</label>
-                <select name="room_type" required>
-                    <option value="living room">Living Room</option>
-                    <option value="bedroom">Bedroom</option>
-                    <option value="kitchen">Kitchen</option>
-                    <option value="bathroom">Bathroom</option>
-                    <option value="office">Home Office</option>
-                </select>
-            </div>
+            <select name="room_type" required>
+                <option value="living room">Living Room</option>
+                <option value="bedroom">Bedroom</option>
+                <option value="kitchen">Kitchen</option>
+            </select>
             
-            <div class="form-group">
-                <label>Design Style</label>
-                <select name="style" required>
-                    <option value="modern">Modern</option>
-                    <option value="minimalist">Minimalist</option>
-                    <option value="industrial">Industrial</option>
-                    <option value="scandinavian">Scandinavian</option>
-                    <option value="bohemian">Bohemian</option>
-                </select>
-            </div>
+            <select name="style" required>
+                <option value="modern">Modern</option>
+                <option value="minimalist">Minimalist</option>
+                <option value="industrial">Industrial</option>
+            </select>
             
-            <div class="form-group">
-                <label>💰 Budget (USD)</label>
-                <input type="number" name="budget" value="5000" step="1000">
-                <small>AI will design within your budget</small>
-            </div>
+            <input type="number" name="budget" value="5000" placeholder="Budget">
+            <input type="text" name="location" value="New York" placeholder="Location">
             
-            <div class="form-group">
-                <label>📍 Location</label>
-                <input type="text" name="location" placeholder="e.g., New York, Beach, Mountains" value="Modern City">
-                <small>AI adapts design to this location</small>
-            </div>
+            <input type="color" name="color_primary" value="#667eea">
+            <input type="color" name="color_secondary" value="#764ba2">
+            <input type="color" name="color_accent" value="#f5f5f5">
             
-            <div class="form-group">
-                <label>🎨 Color Palette (Optional)</label>
-                <div class="color-row">
-                    <div class="color-input">
-                        <input type="color" name="color_primary" value="#667eea">
-                        <div>Primary</div>
-                    </div>
-                    <div class="color-input">
-                        <input type="color" name="color_secondary" value="#764ba2">
-                        <div>Secondary</div>
-                    </div>
-                    <div class="color-input">
-                        <input type="color" name="color_accent" value="#f5f5f5">
-                        <div>Accent</div>
-                    </div>
-                </div>
-            </div>
+            <textarea name="prompt" rows="3" placeholder="Describe your design..."></textarea>
             
-            <div class="form-group">
-                <label>📝 Describe Your Dream Design</label>
-                <textarea name="prompt" rows="4" placeholder="Example: Add large windows, wooden floors, green plants, and warm lighting..."></textarea>
-            </div>
-            
-            <button type="submit">🎨 Generate Design</button>
+            <button type="submit">Generate</button>
         </form>
         
-        <div class="loading" id="loading">
-            ⏳ AI is creating your design... (10-20 seconds)
-        </div>
-        
-        <div class="result" id="result">
-            <h3>✨ Your AI-Generated Design</h3>
-            <img id="resultImage" alt="Generated design">
-            <p class="success" id="successMsg"></p>
-            <p class="error" id="errorMsg"></p>
-            <button onclick="saveAndContinue()" style="margin-top: 15px;">💾 Save & Go to Dashboard</button>
-        </div>
+        <div class="loading" id="loading">Generating...</div>
+        <div id="result"></div>
     </div>
     
     <script>
-        // Get token from localStorage
         const token = localStorage.getItem('token');
         if (!token) {
-            alert('Please login first');
+            alert('Login required');
             window.location.href = '/login';
         }
         
         const form = document.getElementById('designForm');
         const loading = document.getElementById('loading');
         const resultDiv = document.getElementById('result');
-        const resultImage = document.getElementById('resultImage');
-        const errorMsg = document.getElementById('errorMsg');
-        const successMsg = document.getElementById('successMsg');
         
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            // Show loading, hide result
             loading.style.display = 'block';
-            resultDiv.style.display = 'none';
-            errorMsg.textContent = '';
-            successMsg.textContent = '';
+            resultDiv.innerHTML = '';
             
             const formData = new FormData(form);
             
             try {
-                const response = await fetch('/api/generate-interior', {
+                const res = await fetch('/api/generate-interior', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + token },
                     body: formData
                 });
                 
-                const data = await response.json();
+                const data = await res.json();
+                console.log('Response:', data);
                 
                 if (data.success) {
-                    resultImage.src = data.design_url;
-                    successMsg.textContent = '✅ Design generated successfully!';
-                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = '<img src="' + data.design_url + '"><br><button onclick="window.location.href=\'/dashboard\'">Go to Dashboard</button>';
                 } else {
-                    errorMsg.textContent = '❌ Error: ' + data.error;
-                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = '<p style="color:red">Error: ' + data.error + '</p>';
                 }
             } catch (err) {
-                errorMsg.textContent = '❌ Network Error: ' + err.message;
-                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = '<p style="color:red">Error: ' + err.message + '</p>';
             } finally {
                 loading.style.display = 'none';
             }
         });
-        
-        function saveAndContinue() {
-            window.location.href = '/dashboard';
-        }
     </script>
 </body>
 </html>
