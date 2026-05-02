@@ -1807,14 +1807,6 @@ async def get_generated_image(filename: str):
         return FileResponse(file_path)
     return JSONResponse({"error": "Not found"}, status_code=404)
 
-@app.get("/api/check-users")
-async def check_users():
-    try:
-        result = supabase_select("users")
-        return JSONResponse({"success": True, "count": len(result), "users": result})
-    except Exception as e:
-        return JSONResponse({"success": False, "error": str(e)})
-
 
 @app.post("/api/test-save")
 async def test_save():
@@ -1831,6 +1823,23 @@ async def test_save():
     }
     result = supabase_insert("designs", test_data)
     return JSONResponse({"success": True, "result": result})
+
+@app.get("/api/check-users")
+async def check_users():
+    try:
+        result = supabase_select("users")
+        return JSONResponse({"success": True, "count": len(result), "users": result})
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)})
+
+@app.get("/api/check-designs")
+async def check_designs():
+    try:
+        result = supabase_select("designs")
+        return JSONResponse({"success": True, "count": len(result), "designs": result})
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)})
+
 
 # ---------- Run ----------
 if __name__ == "__main__":
