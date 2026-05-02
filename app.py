@@ -116,7 +116,9 @@ async def update_user(user_id: str, updates: dict):
     supabase_update("users", {"id": f"eq.{user_id}"}, updates)
 
 async def save_design(design_data: dict):
-    supabase_insert("designs", design_data)
+    print(f"📝 Saving design: {design_data}")
+    result = supabase_insert("designs", design_data)
+    print(f"✅ Save result: {result}")
     return design_data
 
 async def get_user_designs(user_id: str):
@@ -1740,6 +1742,10 @@ async def generate_interior(
     if not payload:
         return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
     
+    print(f"🔍 Token payload: {payload}")
+    print(f"🔍 User ID from token: {payload.get('sub')}")
+
+
     color_palette = None
     if color_primary:
         color_palette = {"primary": color_primary, "secondary": color_secondary, "accent": color_accent}
@@ -1771,6 +1777,10 @@ async def generate_interior(
         "original_image_url": original_url,
         "created_at": datetime.now().isoformat()
     }
+
+    print(f"📝 Saving design for user: {payload.get('sub')}")
+    print(f"📝 Design data: {design_data}")
+
     await save_design(design_data)
     return JSONResponse({"success": True, "design_url": image_url, "design_id": design_data["id"]})
 
@@ -1939,6 +1949,22 @@ async def get_generated_image(filename: str):
     if file_path.exists():
         return FileResponse(file_path)
     return JSONResponse({"error": "Not found"}, status_code=404)
+
+@app.post("/api/test-save")
+async def test_save():
+    test_data = {
+        "id": "test-123",
+        "user_id": "test-user-1",
+        "type": "interior",
+        "style": "modern",
+        "prompt": "test",
+        "budget": 5000,
+        "location": "test",
+        "generated_image_url": "https://example.com/test.jpg",
+        "created_at": datetime.now().isoformat()
+    }
+    result = supabase_insert("designs", test_data)
+    return JSONResponse({"success": True, "result": result})
 
 # ---------- Run ----------
 if __name__ == "__main__":
