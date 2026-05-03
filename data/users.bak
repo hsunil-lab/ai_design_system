@@ -21,17 +21,6 @@
       "created_at": "2026-04-25T10:30:05.784479",
       "reset_token": null,
       "reset_token_expiry": null
-    },
-    {
-      "id": "3",
-      "email": "thejasmu2403@gmail.com",
-      "username": "Thejas",
-      "password": "$2b$12$Bx3L26nVV/rYETKt4Oeeq.Rr7Qbk.vtFxxQQbas6O.2/NT.QvXAve",
-      "full_name": "M U",
-      "role": "user",
-      "created_at": "2026-05-01T19:08:19.340892",
-      "reset_token": null,
-      "reset_token_expiry": null
     }
   ]
 }

@@ -297,6 +297,43 @@
       "generated_image_url": "/generated/ai_interior_20260501_111109_58a31c32.jpg",
       "created_at": "2026-05-01T11:11:09.799741",
       "original_image_url": "/uploads/upload_20260501_111109_empty room.jpg"
+    },
+    {
+      "id": "18",
+      "user_id": "3",
+      "type": "interior",
+      "room_type": "living room",
+      "style": "modern",
+      "prompt": "very good looking",
+      "budget": 5000,
+      "location": "Modern City",
+      "color_palette": {
+        "primary": "#354aa7",
+        "secondary": "#764ba2",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_interior_20260501_191115_abec8029.jpg",
+      "created_at": "2026-05-01T19:11:15.104725",
+      "original_image_url": "/uploads/upload_20260501_191115_empty room.jpg"
+    },
+    {
+      "id": "19",
+      "user_id": "2",
+      "type": "interior",
+      "room_type": "kitchen",
+      "style": "modern",
+      "prompt": "add sunlight,bright lights",
+      "budget": 10000,
+      "location": "Banglore",
+      "color_palette": {
+        "primary": "#66dbea",
+        "secondary": "#4de1f5",
+        "accent": "#14140f"
+      },
+      "generated_image_url": "/generated/ai_interior_20260501_193434_74f31af1.jpg",
+      "created_at": "2026-05-01T19:29:43.517962",
+      "original_image_url": "/uploads/upload_20260501_192943_empty room.jpg",
+      "updated_at": "2026-05-01T19:34:34.583996"
     }
   ]
 }

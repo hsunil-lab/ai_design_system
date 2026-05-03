@@ -279,6 +279,42 @@
       },
       "generated_image_url": "/generated/ai_exterior_20260501_110603_180d3ac5.jpg",
       "created_at": "2026-05-01T11:06:03.835611"
+    },
+    {
+      "id": "17",
+      "user_id": "2",
+      "type": "interior",
+      "room_type": "kitchen",
+      "style": "scandinavian",
+      "prompt": "simple and elegant add warm lights",
+      "budget": 5000,
+      "location": "Modern City",
+      "color_palette": {
+        "primary": "#b1bced",
+        "secondary": "#cca5f3",
+        "accent": "#d0e17a"
+      },
+      "generated_image_url": "/generated/ai_interior_20260501_111109_58a31c32.jpg",
+      "created_at": "2026-05-01T11:11:09.799741",
+      "original_image_url": "/uploads/upload_20260501_111109_empty room.jpg"
+    },
+    {
+      "id": "18",
+      "user_id": "3",
+      "type": "interior",
+      "room_type": "living room",
+      "style": "modern",
+      "prompt": "very good looking",
+      "budget": 5000,
+      "location": "Modern City",
+      "color_palette": {
+        "primary": "#354aa7",
+        "secondary": "#764ba2",
+        "accent": "#f5f5f5"
+      },
+      "generated_image_url": "/generated/ai_interior_20260501_191115_abec8029.jpg",
+      "created_at": "2026-05-01T19:11:15.104725",
+      "original_image_url": "/uploads/upload_20260501_191115_empty room.jpg"
     }
   ]
 }
