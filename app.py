@@ -1808,22 +1808,6 @@ async def get_generated_image(filename: str):
     return JSONResponse({"error": "Not found"}, status_code=404)
 
 
-@app.post("/api/test-save")
-async def test_save():
-    test_data = {
-        "id": "test-123",
-        "user_id": "test-user-1",
-        "type": "interior",
-        "style": "modern",
-        "prompt": "test",
-        "budget": 5000,
-        "location": "test",
-        "generated_image_url": "https://example.com/test.jpg",
-        "created_at": datetime.now().isoformat()
-    }
-    result = supabase_insert("designs", test_data)
-    return JSONResponse({"success": True, "result": result})
-
 @app.get("/api/check-users")
 async def check_users():
     try:
@@ -1840,8 +1824,24 @@ async def check_designs():
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)})
 
+@app.post("/api/test-save")
+async def test_save():
+    test_data = {
+        "id": "test-123",
+        "user_id": "test-user-1",
+        "type": "interior",
+        "style": "modern",
+        "prompt": "test",
+        "budget": 5000,
+        "location": "test",
+        "generated_image_url": "https://example.com/test.jpg",
+        "created_at": datetime.now().isoformat()
+    }
+    result = supabase_insert("designs", test_data)
+    return JSONResponse({"success": True, "result": result})
+
 
 # ---------- Run ----------
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", 8001))
     uvicorn.run("app:app", host="0.0.0.0", port=port)
