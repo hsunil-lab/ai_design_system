@@ -19,40 +19,43 @@ load_dotenv()
 
 # ---------- Supabase REST API ----------
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY")
 if not SUPABASE_URL or not SUPABASE_KEY:
-    raise Exception("Missing SUPABASE_URL or SUPABASE_KEY environment variables")
+    raise Exception("Missing SUPABASE_URL or SUPABASE_KEY / SUPABASE_SERVICE_KEY environment variables")
+
+if os.getenv("SUPABASE_SERVICE_KEY") is None:
+    print("WARNING: SUPABASE_SERVICE_KEY is not set. Using SUPABASE_KEY instead. If Supabase row-level security is enabled, writes may fail.")
 
 SUPABASE_HEADERS = {
     "apikey": SUPABASE_KEY,
     "Authorization": f"Bearer {SUPABASE_KEY}",
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
+    "Prefer": "return=representation"
 }
 
-def supabase_select(table: str, match: dict = None, order: str = None):
+def supabase_request(method: str, table: str, match: dict = None, data: dict = None, order: str = None):
     url = f"{SUPABASE_URL}/rest/v1/{table}"
-    params = match or {}
+    params = match.copy() if match else {}
     if order:
         params["order"] = order
-    response = httpx.get(url, headers=SUPABASE_HEADERS, params=params)
-    return response.json()
+    response = httpx.request(method, url, headers=SUPABASE_HEADERS, params=params, json=data)
+    if response.status_code >= 400:
+        raise RuntimeError(f"Supabase {method} {table} failed: {response.status_code} {response.text}")
+    if response.headers.get("content-type", "").startswith("application/json"):
+        return response.json()
+    return []
+
+def supabase_select(table: str, match: dict = None, order: str = None):
+    return supabase_request("GET", table, match=match, order=order)
 
 def supabase_insert(table: str, data: dict):
-    url = f"{SUPABASE_URL}/rest/v1/{table}"
-    response = httpx.post(url, headers=SUPABASE_HEADERS, json=data)
-    return response.json()
+    return supabase_request("POST", table, data=data)
 
 def supabase_update(table: str, match: dict, data: dict):
-    url = f"{SUPABASE_URL}/rest/v1/{table}"
-    params = match or {}
-    response = httpx.patch(url, headers=SUPABASE_HEADERS, params=params, json=data)
-    return response
+    return supabase_request("PATCH", table, match=match, data=data)
 
 def supabase_delete(table: str, match: dict):
-    url = f"{SUPABASE_URL}/rest/v1/{table}"
-    params = match or {}
-    response = httpx.delete(url, headers=SUPABASE_HEADERS, params=params)
-    return response
+    return supabase_request("DELETE", table, match=match)
 
 # ---------- FastAPI app ----------
 app = FastAPI(title="AI Interior & Exterior Design System")
@@ -799,87 +802,196 @@ INTERIOR_HTML = '''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Interior Design</title>
+    <title>Interior Design - AI Design System</title>
+    <meta charset="UTF-8">
     <style>
-        body { font-family: Arial; background: linear-gradient(135deg, #667eea, #764ba2); padding: 20px; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 20px; }
-        input, select, textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
-        button { background: #667eea; color: white; padding: 12px; border: none; border-radius: 5px; cursor: pointer; width: 100%; }
-        img { max-width: 100%; margin-top: 20px; border-radius: 10px; }
-        .loading { color: #667eea; text-align: center; display: none; }
-        .hidden { display: none; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        h1 { margin-bottom: 20px; color: #333; text-align: center; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #667eea; text-decoration: none; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; }
+        select, input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        .color-row {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        .color-input { flex: 1; text-align: center; }
+        .color-input input { width: 60px; height: 40px; cursor: pointer; margin: 0 auto; }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .loading { text-align: center; padding: 20px; display: none; color: #667eea; font-weight: bold; }
+        .result { margin-top: 30px; text-align: center; display: none; }
+        .result img { max-width: 100%; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+        .success { color: green; margin-top: 10px; }
+        .error { color: red; margin-top: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Interior Design</h1>
-        <a href="/dashboard">← Dashboard</a>
-        
-        <form id="designForm">
-            <select name="room_type" required>
-                <option value="living room">Living Room</option>
-                <option value="bedroom">Bedroom</option>
-                <option value="kitchen">Kitchen</option>
-            </select>
-            
-            <select name="style" required>
-                <option value="modern">Modern</option>
-                <option value="minimalist">Minimalist</option>
-                <option value="industrial">Industrial</option>
-            </select>
-            
-            <input type="number" name="budget" value="5000" placeholder="Budget">
-            <input type="text" name="location" value="New York" placeholder="Location">
-            
-            <input type="color" name="color_primary" value="#667eea">
-            <input type="color" name="color_secondary" value="#764ba2">
-            <input type="color" name="color_accent" value="#f5f5f5">
-            
-            <textarea name="prompt" rows="3" placeholder="Describe your design..."></textarea>
-            
-            <button type="submit">Generate</button>
+        <a href="/dashboard" class="back-link">← Back to Dashboard</a>
+        <h1>🏠 AI Interior Design Generator</h1>
+        <p style="margin-bottom: 20px; color: #555; text-align: center;">Upload your room or describe your dream interior.</p>
+
+        <form id="designForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Upload Room Photo (Optional)</label>
+                <input type="file" name="image" accept="image/*" id="imageInput">
+                <div class="image-preview" id="imagePreview"></div>
+            </div>
+
+            <div class="form-group">
+                <label>Room Type</label>
+                <select name="room_type" required>
+                    <option value="living room">Living Room</option>
+                    <option value="bedroom">Bedroom</option>
+                    <option value="kitchen">Kitchen</option>
+                    <option value="bathroom">Bathroom</option>
+                    <option value="office">Home Office</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Design Style</label>
+                <select name="style" required>
+                    <option value="modern">Modern</option>
+                    <option value="minimalist">Minimalist</option>
+                    <option value="industrial">Industrial</option>
+                    <option value="scandinavian">Scandinavian</option>
+                    <option value="bohemian">Bohemian</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>💰 Budget (USD)</label>
+                <input type="number" name="budget" value="5000" step="1000">
+            </div>
+
+            <div class="form-group">
+                <label>📍 Location</label>
+                <input type="text" name="location" placeholder="e.g., Beach, Urban, Mountain" value="Modern City">
+            </div>
+
+            <div class="form-group">
+                <label>🎨 Color Palette (Optional)</label>
+                <div class="color-row">
+                    <div class="color-input">
+                        <input type="color" name="color_primary" value="#667eea">
+                        <div>Primary</div>
+                    </div>
+                    <div class="color-input">
+                        <input type="color" name="color_secondary" value="#764ba2">
+                        <div>Secondary</div>
+                    </div>
+                    <div class="color-input">
+                        <input type="color" name="color_accent" value="#f5f5f5">
+                        <div>Accent</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Describe Your Dream Design</label>
+                <textarea name="prompt" rows="4" placeholder="Example: soft lighting, natural materials, layered textures..."></textarea>
+            </div>
+
+            <button type="submit">✨ Generate Design</button>
         </form>
-        
-        <div class="loading" id="loading">Generating...</div>
-        <div id="result"></div>
+
+        <div class="loading" id="loading">⏳ Generating your interior design...</div>
+        <div class="result" id="result">
+            <h3>✨ Generated Design</h3>
+            <img id="resultImage" alt="Generated interior design">
+            <p class="success" id="successMsg"></p>
+            <p class="error" id="errorMsg"></p>
+            <button onclick="window.location.href='/dashboard'">💾 Save & Continue</button>
+        </div>
     </div>
-    
+
     <script>
         const token = localStorage.getItem('token');
         if (!token) {
-            alert('Login required');
+            alert('Please login first');
             window.location.href = '/login';
         }
-        
+
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const preview = document.getElementById('imagePreview');
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    preview.innerHTML = `<img src="${event.target.result}" style="max-width: 100%; border-radius: 10px; margin-top: 15px;">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
         const form = document.getElementById('designForm');
         const loading = document.getElementById('loading');
-        const resultDiv = document.getElementById('result');
-        
+        const result = document.getElementById('result');
+        const resultImage = document.getElementById('resultImage');
+        const errorMsg = document.getElementById('errorMsg');
+        const successMsg = document.getElementById('successMsg');
+
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
             loading.style.display = 'block';
-            resultDiv.innerHTML = '';
-            
+            result.style.display = 'none';
+            errorMsg.textContent = '';
+            successMsg.textContent = '';
+
             const formData = new FormData(form);
-            
+
             try {
-                const res = await fetch('/api/generate-interior', {
+                const response = await fetch('/api/generate-interior', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + token },
                     body: formData
                 });
-                
-                const data = await res.json();
-                console.log('Response:', data);
-                
+                const data = await response.json();
+
                 if (data.success) {
-                    resultDiv.innerHTML = '<img src="' + data.design_url + '"><br><button onclick="window.location.href=\'/dashboard\'">Go to Dashboard</button>';
+                    resultImage.src = data.design_url;
+                    successMsg.textContent = '✅ Design generated successfully!';
+                    result.style.display = 'block';
                 } else {
-                    resultDiv.innerHTML = '<p style="color:red">Error: ' + data.error + '</p>';
+                    errorMsg.textContent = '❌ ' + (data.error || 'Unable to generate design');
+                    result.style.display = 'block';
                 }
             } catch (err) {
-                resultDiv.innerHTML = '<p style="color:red">Error: ' + err.message + '</p>';
+                errorMsg.textContent = '❌ Network error: ' + err.message;
+                result.style.display = 'block';
             } finally {
                 loading.style.display = 'none';
             }
@@ -1566,7 +1678,7 @@ async def reset_password(token: str = Form(...), new_password: str = Form(...)):
     return JSONResponse({"success": True})
 
 @app.get("/api/user")
-async def get_current_user(authorization: str = None):
+async def get_current_user(authorization: Optional[str] = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         return JSONResponse({"success": False}, status_code=401)
     token = authorization.replace("Bearer ", "")
